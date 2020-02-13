@@ -8,6 +8,17 @@ using namespace std;
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 vector<bool>finalAssignment;
 int totalClauses,totalVariables; // These are initialized in main()
+// Given a literal return its complement literal
+inline int complement(int i){
+    if(i&1)
+        return i+1;
+    else
+        return i-1;
+}
+// Given a literal return its variable
+inline int getvariable(int i){
+    return (i+1)/2;
+}
 /**
  * Class for representing a Clause in the input
  */
@@ -51,6 +62,23 @@ class clause{
         // Returns whether clause is a tautology
         bool isTautology(){
             return tautology;
+        }
+        static clause resolution(clause a,clause b,int literal){
+            vector<bool> visited(2*totalVariables);
+            clause newClause;
+            for(auto lit:a.literals){
+                visited[lit]=true;
+                if(lit==literal || lit == complement(literal))
+                    continue;
+                newClause.literals.emplace_back(lit);
+            }
+            for(auto lit:b.literals){
+                if(!visited[lit] && lit!=literal && lit != complement(literal)){
+                    newClause.literals.emplace_back(lit);  
+                    visited[lit]=true;
+                }                    
+            }
+            return newClause;
         }
 };
 /**
@@ -135,17 +163,6 @@ class clauseSet{
             return false;
         }
 };
-// Given a literal return its complement literal
-inline int complement(int i){
-    if(i&1)
-        return i+1;
-    else
-        return i-1;
-}
-// Given a literal return its variable
-inline int getvariable(int i){
-    return (i+1)/2;
-}
 /**
  * SATsolver Class
  * Stores a pointer to clauseset object to access literalMap and all the clauses  
@@ -344,12 +361,12 @@ int main(){
             input.emplace_back(inp); // add literal
         }    
     }
+    clause newc=clause::resolution(clauses.clauses[1],clauses.clauses[2],1);    
     SATsolver dpllsolver(&clauses); // solver object
     vector<bool>assigned(2*totalVariables+5); // assigned vector initially all false   
 
     // CALL TO SOLVER
     int ret=dpllsolver.dpll(clauses.state,assigned,0); 
-    cout<<ret<<" "<<iter<<endl;
     #ifdef DEBUG
     if(!ret)
         cout<<"UNSAT\n";
