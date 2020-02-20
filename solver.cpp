@@ -4,10 +4,15 @@
 ******************************************/
 #include<bits/stdc++.h>
 using namespace std;
-//#define DEBUG2
+//#define DEBUG
+//#define DEBUG3
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
+struct variableState{
+    int assigned,level,antClause;
+};
 vector<bool>finalAssignment;
 vector<int>unitLiterals;
+vector <variableState> state;
 int totalClauses,totalVariables; // These are initialized in main()
 // Given a literal return its complement literal
 inline int complement(int i){
@@ -81,6 +86,12 @@ class clause{
             }
             return newClause;
         }
+        void printClause(){
+            for(auto lit:literals){
+                cout<<lit<<" ";
+            }
+            cout<<"##"<<endl;
+        }
 };
 /**
  * class clauseSetCurrentState
@@ -123,11 +134,20 @@ class clauseSet{
                     watchedLit.push_back({0,0});
                 }
                 else{
-                    auto it=cs.literals.begin();
-                    watchedLit.push_back({0,cs.literals.size()-1});
-                    literalClauseMap[*it]->insert(clauses.size()-1);
-                    it=(--cs.literals.end());
-                    literalClauseMap[*it]->insert(clauses.size()-1);
+                    int flag=0,idx1,idx2,lit1,lit2;
+                    for(int i=0;i<cs.literals.size();i++){
+                        int k=cs.literals[i];
+                        if(state[k].assigned == false && state[complement(k)].assigned==false){
+                            if(flag)
+                                {idx2=i;lit1=k;break;}
+                            else
+                                {idx1=i;lit2=k;flag=1;}
+                        }
+                    }
+                    //cout<<idx1<<" "<<lit1<<" "<<idx2<<" "<<lit2<<endl;
+                    watchedLit.push_back({idx1,idx2});
+                    literalClauseMap[lit1]->insert(clauses.size()-1);
+                    literalClauseMap[lit2]->insert(clauses.size()-1);
                 }
             }
         }
@@ -142,9 +162,9 @@ class clauseSet{
                 cout<<k<<" ";
             cout<<endl;
         }
-        bool isSatisfied(int clauseNum,vector<bool>&assigned){
+        bool isSatisfied(int clauseNum){
             for(auto lit:clauses[clauseNum].literals){
-                if(assigned[lit])
+                if(state[lit].assigned)
                     return true;
             }
             return false;
@@ -154,10 +174,13 @@ class clauseSet{
  * SATsolver Class
  * Stores a pointer to clauseset object to access literalMap and all the clauses  
  */
-int iter=0;
-void unSet(vector<int>&unset,vector<bool>&assigned){
-    for(auto lit:unset)
-        assigned[lit]=false;
+int iter=0,addedClause=0;
+void unSet(vector<int>&unset){
+    for(auto lit:unset){
+        state[lit].assigned=false;
+        state[lit].level=0;
+        state[lit].antClause=0;
+    }
 }
 class SATsolver{
     private:        
@@ -173,8 +196,7 @@ class SATsolver{
          * returns whether clause is satisfied with current state of clauses
          * and assignment to variables      
          */
-        bool dpll(
-            vector<bool>&assigned,int satisfiedVariables){ 
+        pair<bool,int> dpll(int satisfiedVariables,int level){ 
 
             /////////////UNIT PROPOGATION STARTS/////////////////
             vector <int> unset;
@@ -186,21 +208,39 @@ class SATsolver{
                 if(visited[unitLiteral]) // if processed then continue;
                     continue;
                 visited[unitLiteral]=true; // mark visited to true
-                if(assigned[complement(unitLiteral)]){
+                if(state[complement(unitLiteral)].assigned){
                     #ifdef DEBUG
                     cout<<"fail state"<<" "<<unitLiteral<<endl;
                     for(int i=1;i<=2*totalVariables;i++)
-                        cout<<assigned[i]<<" ";
+                        cout<<state[i].assigned<<" ";
                     cout<<endl;
                     for(auto lit:unset)
                         cout<<lit<<" ";
                     cout<<endl;
                     #endif
-                    unSet(unset,assigned);
-                    return false;
+                    addedClause++;
+                    // clause addition
+                    clause cl;
+                    cl=clauseset->clauses[state[unitLiteral].antClause];
+                    //cl.printClause();
+                    for(int j=i-1;j>=0;j--){
+                        int lit=unitLiterals[j];
+                        if(state[lit].antClause==0)continue;
+                        for(auto lit2:cl.literals){
+                            if(lit2==lit || lit2==complement(lit)){
+                                //clauseset->clauses[state[lit].antClause].printClause();
+                                cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
+                                //cl.printClause();
+                            }
+                        }
+                    }
+                    // cl.printClause();
+                    unSet(unset);
+                    return {false,level-1};
                 }
-                if(assigned[unitLiteral])continue;
-                assigned[unitLiteral]=true; // mark that literal set to true
+                if(state[unitLiteral].assigned)continue;
+                state[unitLiteral].assigned=true; // mark that literal set to true
+                state[unitLiteral].level=level;
                 unset.emplace_back(unitLiteral);
                 satisfiedVariables++;
                 #ifdef DEBUG
@@ -214,17 +254,16 @@ class SATsolver{
                 if(clauseset->literalClauseMap[compUnitLiteral]->size()>0){  
                     // iterate over all the clauses containing complement of that literal                       
                     for(auto clauseNum:*(clauseset->literalClauseMap[compUnitLiteral])){
-                        //cout<<"%%"<<endl;
                         iter++;
-                        if(clauseset->isSatisfied(clauseNum,assigned))continue;
+                        if(clauseset->isSatisfied(clauseNum))continue;
                         int idx1=clauseset->watchedLit[clauseNum].first;
                         int idx2=clauseset->watchedLit[clauseNum].second;
                         bool flag=false;
                         if(clauseset->clauses[clauseNum].literals[idx1]==compUnitLiteral){
                             for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
                                 if(i==idx2 || i==idx1)continue;
-                                if(assigned[clauseset->clauses[clauseNum].literals[i]]==false && 
-                                    assigned[complement(clauseset->clauses[clauseNum].literals[i])]==false)
+                                if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
+                                    state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
                                     {
                                         clauseset->watchedLit[clauseNum].first=i;
                                         clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
@@ -237,13 +276,15 @@ class SATsolver{
                                 #ifdef DEBUG
                                 //cout<<clauseNum<<"$$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx2]<<endl;
                                 #endif
-                                unitLiterals.emplace_back(clauseset->clauses[clauseNum].literals[idx2]);
+                                int newliteral=clauseset->clauses[clauseNum].literals[idx2];
+                                unitLiterals.emplace_back(newliteral);
+                                state[newliteral].antClause=clauseNum;
                             }
                         }else{
                              for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
                                 if(i==idx2 || i==idx1)continue;
-                               if(assigned[clauseset->clauses[clauseNum].literals[i]]==false && 
-                                    assigned[complement(clauseset->clauses[clauseNum].literals[i])]==false)
+                               if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
+                                    state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
                                     {
                                         clauseset->watchedLit[clauseNum].second=i;
                                         clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
@@ -256,7 +297,9 @@ class SATsolver{
                                 #ifdef DEBUG
                                 //cout<<clauseNum<<"$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx1]<<endl;
                                 #endif
-                                unitLiterals.emplace_back(clauseset->clauses[clauseNum].literals[idx1]);
+                                int newliteral=clauseset->clauses[clauseNum].literals[idx1];
+                                unitLiterals.emplace_back(newliteral);
+                                state[newliteral].antClause=clauseNum;
                             }
                         }                     
                     }  
@@ -270,9 +313,8 @@ class SATsolver{
                 for(int i=1;i<=totalClauses;i++)
                     cout<<i<<" "<<clauseset->watchedLit[i].first<<" "<<clauseset->watchedLit[i].second<<endl;;
                 #endif
-                finalAssignment=assigned;
-                unSet(unset,assigned);
-                return true;
+                unSet(unset);
+                return {true,0};
             }
             /////////////UNIT PROPOGATION COMPLETED/////////////////
             // clear the unitLiterals list as all of them been taken care of
@@ -294,14 +336,14 @@ class SATsolver{
             // we then flip polarity of literal with 1/2 probablity
             int bestLiteral=0,bestValue=-1;
             for(int i=1;i<2*totalVariables;i+=2){
-                if(!assigned[i] && !assigned[i+1]){ // both the literals are unassigned
+                if(!state[i].assigned && !state[i+1].assigned){ // both the literals are unassigned
                     bestLiteral=i;
                     break;
                 }
             }
             if(bestLiteral==0){
-                unSet(unset,assigned);
-                return false;
+                unSet(unset);
+                return {false,level-1};
             }
             int random=rand()%2;
             // randomly choose either positive or negated literal
@@ -323,8 +365,14 @@ class SATsolver{
             //cout<<"?????????????????\n";
             // create a copy of assigned vector
             // 1st DPLL call
-            if(dpll(assigned,satisfiedVariables))
-                return true;
+            pair<bool,int> ret=dpll(satisfiedVariables,level+1);
+            if(ret.first)
+                return {true,0};
+            if(level>ret.second){ // this wants to go up more 
+                unSet(unset);
+                return {false,ret.second};
+            }                   
+            
             #ifdef DEBUG2
             cout<<complement(bestLiteral)<<"???"<<endl;
             for(int i=1;i<=2*totalVariables;i++){
@@ -337,13 +385,13 @@ class SATsolver{
             // 2nd DPLL call
             unitLiterals.clear();
             unitLiterals.emplace_back(complement(bestLiteral));
-            int call2=dpll(assigned,satisfiedVariables);
-            if(call2)
-                return true;
+            pair<bool,int> ret2=dpll(satisfiedVariables,level+1);
+            if(ret2.first)
+                return {true,0};
             else
             {
-                unSet(unset,assigned);
-                return false;
+                unSet(unset);
+                return {false,(int)min(level-1,ret2.second)};
             }            
         }
 };
@@ -360,6 +408,7 @@ int main(){
         cin>>ch;
     }
     cin>>str>>totalVariables>>totalClauses;
+    state.resize(2*totalVariables+5);
     clauseSet clauses; // clauseset object
     vector<int>input; // stores literals
     while(cin>>inp){
@@ -373,20 +422,23 @@ int main(){
             input.emplace_back(inp); // add literal
         }    
     }
-    clause newc=clause::resolution(clauses.clauses[1],clauses.clauses[2],1);    
+    //cout<<"????????"<<endl;
+    clause newc=clause::resolution(clauses.clauses[1],clauses.clauses[2],1); 
+    //  for(int i=1;i<=2*totalVariables;i++)
+    //     clauses.printLiteral(i);   
     SATsolver dpllsolver(&clauses); // solver object
-    vector<bool>assigned(2*totalVariables+5); // assigned vector initially all false   
+    // assigned vector initially all false   
 
     // CALL TO SOLVER
-    int ret=dpllsolver.dpll(assigned,0); 
-    cout<<ret<<endl;
-    #ifdef DEBUG
-    if(!ret)
+    pair<bool,int> ret=dpllsolver.dpll(0,0); 
+    cout<<ret.first<<endl;
+    #ifdef DEBUG2
+    if(!ret.first)
         cout<<"UNSAT\n";
     else{
         cout<<"SAT\n";
         for(int i=1;i<=totalVariables*2;i+=2){
-            if(finalAssignment[i])
+            if(state[i].assigned)
                 cout<<-1*getvariable(i)<<" ";              
             else
                 cout<<getvariable(i)<<" ";     
@@ -397,7 +449,7 @@ int main(){
         for(auto lit: k.literals){
             if(lit==0)
                 {set=true;break;}                         
-            set|=finalAssignment[lit];
+            set|=state[lit].assigned;
         }
         assert(set==true);
     }   
