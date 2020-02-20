@@ -6,6 +6,7 @@
 using namespace std;
 //#define DEBUG
 //#define DEBUG3
+#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 struct variableState{
     int assigned,level,antClause;
@@ -313,7 +314,7 @@ class SATsolver{
                 for(int i=1;i<=totalClauses;i++)
                     cout<<i<<" "<<clauseset->watchedLit[i].first<<" "<<clauseset->watchedLit[i].second<<endl;;
                 #endif
-                unSet(unset);
+                // unSet(unset);
                 return {true,0};
             }
             /////////////UNIT PROPOGATION COMPLETED/////////////////
@@ -432,7 +433,7 @@ int main(){
     // CALL TO SOLVER
     pair<bool,int> ret=dpllsolver.dpll(0,0); 
     cout<<ret.first<<endl;
-    #ifdef DEBUG2
+    #ifdef OUTPUT
     if(!ret.first)
         cout<<"UNSAT\n";
     else{
