@@ -5,11 +5,11 @@ mkdir dump
 #UUF200.860.1000
 
 g++ solver.cpp --std=c++11
-rm ./dump/out1.txt
-for filename in $1/*.dimacs; do   
+for filename in $1/*.cnf; do   
     echo "$filename"
-    ./a.out < $filename >> ./dump/out3.txt
+    ./a.out < $filename >> ./dump/out8.txt
     time ./a.out < $filename
     echo "$filename"
 done
-#diff -w correctAns.txt ./dump/out3.txt
+#diff -w correctAns2.txt ./dump/out7.txt
+diff -w correctAns.txt ./dump/out8.txt
