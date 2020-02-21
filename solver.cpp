@@ -14,6 +14,7 @@ struct variableState{
 vector<bool>finalAssignment;
 vector<int>unitLiterals;
 vector <variableState> state;
+vector <int> depth;
 int totalClauses,totalVariables; // These are initialized in main()
 // Given a literal return its complement literal
 inline int complement(int i){
@@ -197,7 +198,7 @@ vector <clause> temporaryBuffer;
 void unSet(vector<int>&unset){
     for(auto lit:unset){
         state[lit].assigned=false;
-        state[lit].level=0;
+        depth[getvariable(lit)]=0;
         state[lit].antClause=0;
     }
 }
@@ -224,10 +225,12 @@ class SATsolver{
             for(int i=0;i<unitLiterals.size();i++){
 
                 int unitLiteral=unitLiterals[i];
-               // cout<<unitLiteral<<endl;
+                #ifdef DEBUG
+                cout<<unitLiteral<<" "<<level<<endl;
+                #endif
                 if(visited[unitLiteral]) // if processed then continue;
                     continue;
-                visited[unitLiteral]=true; // mark visited to true
+                visited[unitLiteral]=true; // mark visited to true              
                 if(state[complement(unitLiteral)].assigned){
                     #ifdef DEBUG
                     cout<<"fail state"<<" "<<unitLiteral<<endl;
@@ -244,28 +247,25 @@ class SATsolver{
                     cl=clauseset->clauses[state[unitLiteral].antClause];
                     //cout<<state[unitLiteral].level<<"???????????????????????"<<level<<endl;
                     //cl.printClause();
-                    int counter4=0,max2=0;
-                    for(auto lit3:cl.literals){
-                        //cout<<state[lit3].level<<" ";
-                        counter4+=(state[lit3].level==level);
-                        if(state[lit3].level!=level)
-                            max2=max(max2,state[lit3].level);
-                    }
-                    //cout<<"$??????????????????????"<<max2<<" "<<counter4<<endl;
                     for(int j=i-1;j>=0;j--){
                         int lit=unitLiterals[j];
                         if(state[lit].antClause==0)continue;
                         //cout<<lit<<endl;
                         for(auto lit2:cl.literals){
                             if(lit2==lit || lit2==complement(lit)){
+                                //cout<<lit<<"---";
                                 //clauseset->clauses[state[lit].antClause].printClause();
                                 cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
                                 //cl.printClause();
                                 int counter3=0,max1=0;
                                 for(auto lit3:cl.literals){
-                                    counter3+=(state[lit3].level==level);
-                                    if(state[lit3].level!=level)
-                                        max1=max(max1,state[lit3].level);
+                                    //cout<<state[lit3].level<<" "<<state[complement(lit3)].level<<endl;
+                                    //assert(!(state[lit3].level!=0 && state[complement(lit3)].level!=0));
+                                    int level1=depth[getvariable(lit3)];
+                                    //cout<<lit3<<" "<<level<<" "<<level1<<endl;
+                                    counter3+=(level1==level);
+                                    if(level1!=level)
+                                        max1=max(max1,level1);
                                 }
                                 //cout<<"??????????????????????"<<max1<<" "<<counter3<<endl;
                                 if(max1==0)
@@ -291,7 +291,7 @@ class SATsolver{
                 }
                 if(state[unitLiteral].assigned)continue;
                 state[unitLiteral].assigned=true; // mark that literal set to true
-                state[unitLiteral].level=level;
+                depth[(getvariable(unitLiteral))]=level;
                 unset.emplace_back(unitLiteral);
                 satisfiedVariables++;
                 #ifdef DEBUG2
@@ -330,7 +330,7 @@ class SATsolver{
                                 int newliteral=clauseset->clauses[clauseNum].literals[idx2];
                                 unitLiterals.emplace_back(newliteral);
                                 state[newliteral].antClause=clauseNum;
-                                state[newliteral].level=level;
+                                // state[newliteral].level=level;
                             }
                         }else{
                              for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
@@ -352,7 +352,7 @@ class SATsolver{
                                 int newliteral=clauseset->clauses[clauseNum].literals[idx1];
                                 unitLiterals.emplace_back(newliteral);
                                 state[newliteral].antClause=clauseNum;
-                                state[newliteral].level=level;
+                                // state[newliteral].level=level;
                             }
                         }                     
                     }  
@@ -464,6 +464,7 @@ int main(){
     }
     cin>>str>>totalVariables>>totalClauses;
     state.resize(2*totalVariables+5);
+    depth.resize(totalVariables+5);
     clauseSet clauses; // clauseset object
     vector<int>input; // stores literals
     while(cin>>inp){
