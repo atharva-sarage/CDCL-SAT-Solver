@@ -4,9 +4,9 @@
 ******************************************/
 #include<bits/stdc++.h>
 using namespace std;
-#define DEBUG
+//#define DEBUG
 //#define DEBUG3
-#define OUTPUT
+//#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 struct variableState{
     int assigned,level,antClause;
@@ -128,7 +128,7 @@ class clauseSet{
          * a tautology. It then updates countClause and the literalClauseMap
          */
         void addClause(clause cs){
-            cs.printClause();
+            // cs.printClause();
             for(auto lit:cs.literals){
                 #ifdef DEBUG3
                 cout<<lit<<"@"<<state[lit].assigned<<" "<<state[complement(lit)].assigned<<endl;
@@ -144,7 +144,10 @@ class clauseSet{
                 if(cs.literals.size() == 1){ // It is a unit Clause
                     unitLiterals.emplace_back(cs.literals.front());
                     watchedLit.push_back({0,0});
-                    cout<<"unit here"<<endl;
+                    //cout<<"Learned unit clause"<<endl;
+                    #ifdef DEBUG
+                    cout<<"unit here "<<cs.literals.front()<<endl;
+                    #endif
                 }
                 else{
                     int flag=0,idx1,idx2=-1,lit1,lit2=-1,idx3,lit3;
@@ -163,7 +166,9 @@ class clauseSet{
                     if(idx2==-1){
                         idx2=idx3,lit2=lit3;
                         // unitClause
+                        #ifdef DEBUG
                         cout<<"unit here"<<endl;
+                        #endif
                         unitLiterals.emplace_back(lit1);
                     }
                     #ifdef DEBUG3
@@ -202,13 +207,14 @@ class clauseSet{
 int iter=0;
 vector<clause>temporaryBuffer;
 int satisfiedVariables=0;
-void unSet(vector<int>&unset){
+void unSet(vector<int>&unset,int flag=1){
     for(auto lit:unset){
         state[lit].assigned=false;
         depth[getvariable(lit)]=0;
         state[lit].antClause=0;
     }
-    satisfiedVariables-=unset.size();
+    if(flag)
+        satisfiedVariables-=unset.size();
 }
 pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
 
@@ -220,8 +226,10 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         #endif
         if(visited[unitLiteral]) // if processed then continue;
             continue;
-        visited[unitLiteral]=true; // mark visited to true              
-        cout<<unitLiteral<<"--"<<level<<endl;
+        visited[unitLiteral]=true; // mark visited to true 
+        //cout<<unitLiteral<<"--"<<level<<endl;
+        #ifdef DEBUG             
+        #endif
         if(state[complement(unitLiteral)].assigned){
             #ifdef DEBUG
             cout<<"fail state"<<" "<<unitLiteral<<" "<<level<<endl;
@@ -237,16 +245,22 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
             //cout<<unitLiteral<<" "<<state[unitLiteral].antClause<<"???"<<endl;
             cl=clauseset->clauses[state[unitLiteral].antClause];
             //cout<<state[unitLiteral].level<<"???????????????????????"<<level<<endl;
+            #ifdef DEBUG
             cl.printClause();
+            #endif
             for(int j=i-1;j>=0;j--){
                 int lit=unitLiterals[j];
                 if(state[lit].antClause==0)continue;
                 for(auto lit2:cl.literals){
                     if(lit2==lit || lit2==complement(lit)){
                         //cout<<lit<<"---";
+                        #ifdef DEBUG
                         clauseset->clauses[state[lit].antClause].printClause();
+                        #endif
                         cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
+                        #ifdef DEBUG
                         cl.printClause();
+                        #endif
                         int counter3=0,max1=0;
                         for(auto lit3:cl.literals){
                             //cout<<state[lit3].level<<" "<<state[complement(lit3)].level<<endl;
@@ -262,17 +276,24 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                         //     max1=level;
                         if(counter3==1){
                             unitLiterals.clear();
-                            cl.printClause();
                             temporaryBuffer.emplace_back(cl);
                             //cout<<level<<" jump to level "<<min(level-1,max1)<<endl;
-                            cout<<level<<" "<<max1<<" "<<min(level-1,max1)<<endl;
+                            #ifdef DEBUG
+                            cl.printClause();
+                            cout<<level<<" "<<max1<<"====="<<min(level-1,max1)<<endl;
+                            #endif
                             return {false,max1};
                         }
                         //cl.printClause();
                     }
                 }
             }
+            #ifdef DEBUG
             cl.printClause();                    
+            for(int i=1;i<=level;i++)
+                cout<<i<<" "<<decisionLiteral[i]<<endl;
+            cout<<"no uip"<<endl;
+            #endif
             temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
             //clauseset->addClause(cl);
             //assert(1==0); // should not reached here check again./
@@ -291,14 +312,22 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         #endif
         // Now we look at all the clauses where complement of this literal occurs   
         int compUnitLiteral=complement(unitLiteral);  
+        #ifdef DEBUG
         cout<<compUnitLiteral<<"$$$$$$$"<<clauseset->literalClauseMap[compUnitLiteral]->size()<<endl;
+        #endif
         vector <int> eraseList;
         if(clauseset->literalClauseMap[compUnitLiteral]->size()>0){  
             // iterate over all the clauses containing complement of that literal                       
             for(auto clauseNum:*(clauseset->literalClauseMap[compUnitLiteral])){
                 iter++;
+                // cout<<clauseNum<<"$#$#$#$#"<<endl;
+                // for(int i=1;i<=2*totalVariables;i++){
+                //     cout<<state[i].assigned<<" ";
+                // }
+                // cout<<endl;
                 if(clauseset->isSatisfied(clauseNum))continue;
-                cout<<clauseNum<<"$#$#$#$#"<<endl;
+                #ifdef DEBUG
+                #endif
                 int idx1=clauseset->watchedLit[clauseNum].first;
                 int idx2=clauseset->watchedLit[clauseNum].second;
                 bool flag=false;
@@ -316,13 +345,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                             }
                     }
                     if(!flag){
-                        cout<<clauseNum<<"$$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx2]<<endl;
                         #ifdef DEBUG
+                        cout<<clauseNum<<"$$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx2]<<endl;
                         #endif
                         int newliteral=clauseset->clauses[clauseNum].literals[idx2];
                         unitLiterals.emplace_back(newliteral);
                         state[newliteral].antClause=clauseNum;
-                        cout<<newliteral<<" "<<clauseNum<<"^^"<<endl;
+                        //cout<<newliteral<<" "<<clauseNum<<"^^"<<endl;
                         // state[newliteral].level=level;
                     }
                 }else{
@@ -339,13 +368,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                             }
                     }
                     if(!flag){
-                        cout<<clauseNum<<"$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx1]<<endl;
                         #ifdef DEBUG
+                        cout<<clauseNum<<"$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx1]<<endl;
                         #endif
                         int newliteral=clauseset->clauses[clauseNum].literals[idx1];
                         unitLiterals.emplace_back(newliteral);
                         state[newliteral].antClause=clauseNum;
-                        cout<<newliteral<<" "<<clauseNum<<"^"<<endl;
+                        //cout<<newliteral<<" "<<clauseNum<<"^"<<endl;
                         // state[newliteral].level=level;
                     }
                 }                     
@@ -356,8 +385,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         }  
     }   
     unitLiterals.clear();
+    #ifdef DEBUG
     cout<<satisfiedVariables<<endl;
-    if(satisfiedVariables==totalVariables)
+    #endif
+    int satisfiedVariables2=0;
+    for(int i=1;i<=2*totalVariables;i++)
+        satisfiedVariables2+=state[i].assigned;
+    if(satisfiedVariables2==totalVariables)
         return {true,-1};
     return {true,0}; // no conflict in unitPropogation go to deduce stage
 }
@@ -374,11 +408,16 @@ class SATsolver{
                 unSet(unset);                
                 return retVal;
             }
-            if(satisfiedVariables==totalVariables){
+            int satisfiedVariables2=0;
+            for(int i=1;i<=2*totalVariables;i++)
+                satisfiedVariables2+=state[i].assigned;
+            if(satisfiedVariables2==totalVariables){
                 return {true,0};
             }
             unitLiterals.clear();
             int temp=0;
+            vector<int>unset2;
+
             while(1){
                 int bestLiteral=0,bestValue=-1;
                 for(int i=1;i<2*totalVariables;i+=2){
@@ -392,11 +431,14 @@ class SATsolver{
                     assert("1==0"); // analyse this case
                     return {false,level-1};
                 }                
-                cout<<bestLiteral<<endl;
+                //cout<<bestLiteral<<endl;
                 unitLiterals.insert(unitLiterals.begin(),bestLiteral);
                 decisionLiteral[level+1]=bestLiteral;
+                //cout<<satisfiedVariables<<"satisfied variables"<<endl;
                 pair<bool,int> ret=dpll(level+1);
-                cout<<ret.first<<" "<<ret.second<<"?"<<level<<" "<<clauseset->clauses.size()<<" "<<temporaryBuffer.size()<<endl;
+                #ifdef DEBUG
+                cout<<"call"<<ret.first<<" "<<ret.second<<"?"<<level<<" "<<clauseset->clauses.size()<<" "<<temporaryBuffer.size()<<endl;
+                #endif
                 if(ret.first)
                     return {true,0};
                 decisionLiteral[level+1]=0; // we either go up or stay at same level so 
@@ -409,13 +451,30 @@ class SATsolver{
                     for(auto clause:temporaryBuffer)
                         clauseset->addClause(clause);
                     temporaryBuffer.clear();
-                    cout<<decisionLiteral[level]<<" decision literal"<<endl;                    
-                    unitLiterals.emplace_back(decisionLiteral[level]);
-                    vector<int>unset2;
+                    #ifdef DEBUG
+                    cout<<decisionLiteral[level]<<" decision literal"<<endl;   
+                    #endif
+                    if(level!=0) // check again
+                        unitLiterals.emplace_back(decisionLiteral[level]);
+                    unSet(unset2,0);
+                    unset2.clear();
                     pair<bool,int> retVal2=unitPropogation(unset2,level,clauseset);
+                    #ifdef DEBUG
+                    for(auto k:unset2)
+                        cout<<k<<"::::";
+                    cout<<"????"<<endl;
                     cout<<"done deduce"<<" "<<retVal2.first<<endl;
-                    assert(retVal2.first==true);// check again
-                    cout<<satisfiedVariables<<" "<<totalVariables<<endl;
+                    for(int i=1;i<=2*totalVariables;i++)
+                        cout<<state[i].assigned<<" ";
+                    cout<<endl;
+                    #endif
+                    //assert(retVal2.first==true);// check again if unit literal clause
+                    // is returned then false;
+                    //cout<<satisfiedVariables<<" "<<totalVariables<<endl;                    
+                    if(retVal2.first==false){
+                        unSet(unset2);
+                        return retVal2;
+                    }
                     if(retVal2.second==-1){                  
                       return {true,0};
                     }

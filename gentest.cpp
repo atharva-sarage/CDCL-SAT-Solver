@@ -21,21 +21,50 @@ int rand(int a, int b) {
 int main(int argc, char* argv[]) {
     srand(atoi(argv[1]));
 	IOS;
-    int n=rand(3,5);
-    int m=rand(4,4);
+    int n=rand(10,10);
+    int m=rand(20,20);
     cout<<"p cnf "<<n<<" "<<m<<endl;
-    while(m--){
-        int lit1=rand()%2;
-        if(lit1==0)
-            lit1=-1;
-        int lit2=rand()%2;
-        if(lit2==0)
-            lit2=-1;
-        int lit3=rand()%2;
-        if(lit3==0)
-            lit3=-1;
-        cout<<rand(1,n)*lit1<<" "<<rand(1,n)*lit2<<" "<<rand(1,n)*lit3<<" "<<0<<endl;
+    while(m--){      
+        set<int>s;
+        while(s.size()<3){
+            int lit1=rand()%2;
+            if(lit1==0)lit1=-1;
+            int num=rand(1,n);
+            s.insert(num*lit1);
+        }
+        for(auto k:s)
+            cout<<k<<" ";
+        cout<<0<<endl;
     }
 	
 	
 }
+// 8 15
+/*
+p cnf 4 12
+-3 -1 2 0
+-4 -2 3 0
+-4 -2 4 0
+-4 -3 2 0
+-4 -3 1 0
+-2 -1 4 0
+1 3 4 0
+1 2 4 0
+-4 -2 -1 0
+-4 1 3 0
+-3 1 4 0
+-1 1 4 0
+*/
+/*
+p cnf 4 10
+-3 1 2 0
+-4 1 3 0
+-2 1 2 0
+-2 3 4 0
+1 2 4 0
+-4 2 3 0
+-3 -2 -1 0
+-4 -3 1 0
+-3 1 4 0
+-4 -2 3 0
+*/
