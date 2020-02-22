@@ -11,6 +11,7 @@ using namespace std;
 struct variableState{
     int assigned,level,antClause;
 };
+vector<int>level0Variables;
 vector<bool>finalAssignment;
 vector<int>unitLiterals;
 vector <variableState> state;
@@ -142,11 +143,12 @@ class clauseSet{
             else{
                 clauses.emplace_back(cs); // add to clauses
                 if(cs.literals.size() == 1){ // It is a unit Clause
-                    unitLiterals.emplace_back(cs.literals.front());
+                    level0Variables.emplace_back(cs.literals.front());
+                    unitLiterals=level0Variables;
                     watchedLit.push_back({0,0});
                     //cout<<"Learned unit clause"<<endl;
+                    //cout<<"unit here "<<cs.literals.front()<<endl;
                     #ifdef DEBUG
-                    cout<<"unit here "<<cs.literals.front()<<endl;
                     #endif
                 }
                 else{
@@ -227,8 +229,8 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         if(visited[unitLiteral]) // if processed then continue;
             continue;
         visited[unitLiteral]=true; // mark visited to true 
-        //cout<<unitLiteral<<"--"<<level<<endl;
         #ifdef DEBUG             
+        cout<<unitLiteral<<"--"<<level<<endl;
         #endif
         if(state[complement(unitLiteral)].assigned){
             #ifdef DEBUG
@@ -294,6 +296,10 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                 cout<<i<<" "<<decisionLiteral[i]<<endl;
             cout<<"no uip"<<endl;
             #endif
+            if(cl.literals.size()!=1){
+                // cout<<level<<endl;
+                //assert(1==0); // check again
+            }
             temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
             //clauseset->addClause(cl);
             //assert(1==0); // should not reached here check again./
@@ -405,7 +411,8 @@ class SATsolver{
             /////////////UNIT PROPOGATION STARTS/////////////////
             pair<bool,int>retVal=unitPropogation(unset,level,clauseset);
             if(retVal.first!=true){
-                unSet(unset);                
+                unSet(unset);  
+                unset.clear();              
                 return retVal;
             }
             int satisfiedVariables2=0;
@@ -444,7 +451,11 @@ class SATsolver{
                 decisionLiteral[level+1]=0; // we either go up or stay at same level so 
                 // discard current decision variable taken at this level(best literal)
                 unSet(unset); // check again as we need to restart even if same level
+                unSet(unset2,0);
+                unset.clear();
+                unset2.clear();
                 if(level>ret.second){ // this wants to go up more 
+                    
                     return {false,ret.second};
                 }    
                 else if(level==ret.second){
@@ -453,11 +464,12 @@ class SATsolver{
                     temporaryBuffer.clear();
                     #ifdef DEBUG
                     cout<<decisionLiteral[level]<<" decision literal"<<endl;   
+                    for(int i=1;i<=2*totalVariables;i++)
+                        cout<<state[i].assigned<<" ";
+                    cout<<endl;
                     #endif
                     if(level!=0) // check again
                         unitLiterals.emplace_back(decisionLiteral[level]);
-                    unSet(unset2,0);
-                    unset2.clear();
                     pair<bool,int> retVal2=unitPropogation(unset2,level,clauseset);
                     #ifdef DEBUG
                     for(auto k:unset2)
@@ -473,6 +485,7 @@ class SATsolver{
                     //cout<<satisfiedVariables<<" "<<totalVariables<<endl;                    
                     if(retVal2.first==false){
                         unSet(unset2);
+                        unset2.clear();
                         return retVal2;
                     }
                     if(retVal2.second==-1){                  

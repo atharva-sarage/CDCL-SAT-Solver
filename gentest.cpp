@@ -18,11 +18,13 @@ using namespace std;
 int rand(int a, int b) {
     return a + rand() % (b - a + 1);
 }
+// 5,10 30 60
+// 
 int main(int argc, char* argv[]) {
     srand(atoi(argv[1]));
 	IOS;
-    int n=rand(10,10);
-    int m=rand(20,20);
+    int n=rand(5,10);
+    int m=rand(30,60);
     cout<<"p cnf "<<n<<" "<<m<<endl;
     while(m--){      
         set<int>s;
