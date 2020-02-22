@@ -4,9 +4,9 @@
 ******************************************/
 #include<bits/stdc++.h>
 using namespace std;
-//#define DEBUG
+#define DEBUG
 //#define DEBUG3
-//#define OUTPUT
+#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 struct variableState{
     int assigned,level,antClause;
@@ -15,6 +15,7 @@ vector<bool>finalAssignment;
 vector<int>unitLiterals;
 vector <variableState> state;
 vector <int> depth;
+vector <int> decisionLiteral;
 int totalClauses,totalVariables; // These are initialized in main()
 // Given a literal return its complement literal
 inline int complement(int i){
@@ -127,6 +128,7 @@ class clauseSet{
          * a tautology. It then updates countClause and the literalClauseMap
          */
         void addClause(clause cs){
+            cs.printClause();
             for(auto lit:cs.literals){
                 #ifdef DEBUG3
                 cout<<lit<<"@"<<state[lit].assigned<<" "<<state[complement(lit)].assigned<<endl;
@@ -142,10 +144,10 @@ class clauseSet{
                 if(cs.literals.size() == 1){ // It is a unit Clause
                     unitLiterals.emplace_back(cs.literals.front());
                     watchedLit.push_back({0,0});
-                    //cout<<"unit here"<<endl;
+                    cout<<"unit here"<<endl;
                 }
                 else{
-                    int flag=0,idx1,idx2=-1,lit1,lit2=-1;
+                    int flag=0,idx1,idx2=-1,lit1,lit2=-1,idx3,lit3;
                     for(int i=0;i<cs.literals.size();i++){
                         int k=cs.literals[i];                     
                         if(state[k].assigned == false && state[complement(k)].assigned==false){
@@ -154,10 +156,14 @@ class clauseSet{
                             else
                                 {idx1=i;lit1=k;flag=1;}
                         }
+                        else{
+                            idx3=i;lit3=k;
+                        }
                     }
                     if(idx2==-1){
-                        idx2=idx1,lit2=lit1;
+                        idx2=idx3,lit2=lit3;
                         // unitClause
+                        cout<<"unit here"<<endl;
                         unitLiterals.emplace_back(lit1);
                     }
                     #ifdef DEBUG3
@@ -195,222 +201,184 @@ class clauseSet{
  */
 int iter=0;
 vector<clause>temporaryBuffer;
+int satisfiedVariables=0;
 void unSet(vector<int>&unset){
     for(auto lit:unset){
         state[lit].assigned=false;
         depth[getvariable(lit)]=0;
         state[lit].antClause=0;
     }
+    satisfiedVariables-=unset.size();
+}
+pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
+
+    // to keep track which unitLiterals are processed            
+    vector <bool> visited(2*totalVariables+5);
+    for(int i=0;i<unitLiterals.size();i++){
+        int unitLiteral=unitLiterals[i];
+        #ifdef DEBUG
+        #endif
+        if(visited[unitLiteral]) // if processed then continue;
+            continue;
+        visited[unitLiteral]=true; // mark visited to true              
+        cout<<unitLiteral<<"--"<<level<<endl;
+        if(state[complement(unitLiteral)].assigned){
+            #ifdef DEBUG
+            cout<<"fail state"<<" "<<unitLiteral<<" "<<level<<endl;
+            for(int i=1;i<=2*totalVariables;i++)
+                cout<<state[i].assigned<<" ";
+            cout<<endl;
+            for(auto lit:unset)
+                cout<<lit<<" ";
+            cout<<endl;
+            #endif
+            // clause addition
+            clause cl;
+            //cout<<unitLiteral<<" "<<state[unitLiteral].antClause<<"???"<<endl;
+            cl=clauseset->clauses[state[unitLiteral].antClause];
+            //cout<<state[unitLiteral].level<<"???????????????????????"<<level<<endl;
+            cl.printClause();
+            for(int j=i-1;j>=0;j--){
+                int lit=unitLiterals[j];
+                if(state[lit].antClause==0)continue;
+                for(auto lit2:cl.literals){
+                    if(lit2==lit || lit2==complement(lit)){
+                        //cout<<lit<<"---";
+                        clauseset->clauses[state[lit].antClause].printClause();
+                        cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
+                        cl.printClause();
+                        int counter3=0,max1=0;
+                        for(auto lit3:cl.literals){
+                            //cout<<state[lit3].level<<" "<<state[complement(lit3)].level<<endl;
+                            //assert(!(state[lit3].level!=0 && state[complement(lit3)].level!=0));
+                            int level1=depth[getvariable(lit3)];
+                            //cout<<lit3<<" "<<level<<" "<<level1<<endl;
+                            counter3+=(level1==level);
+                            if(level1!=level)
+                                max1=max(max1,level1);
+                        }
+                        //cout<<"??????????????????????"<<max1<<" "<<counter3<<endl;
+                        // if(max1==0) // if only one variable at current level go to level 0
+                        //     max1=level;
+                        if(counter3==1){
+                            unitLiterals.clear();
+                            cl.printClause();
+                            temporaryBuffer.emplace_back(cl);
+                            //cout<<level<<" jump to level "<<min(level-1,max1)<<endl;
+                            cout<<level<<" "<<max1<<" "<<min(level-1,max1)<<endl;
+                            return {false,max1};
+                        }
+                        //cl.printClause();
+                    }
+                }
+            }
+            cl.printClause();                    
+            temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
+            //clauseset->addClause(cl);
+            //assert(1==0); // should not reached here check again./
+            unitLiterals.clear();            
+            return {false,level-1};
+        }
+        if(state[unitLiteral].assigned)continue;
+        state[unitLiteral].assigned=true; // mark that literal set to true
+        depth[(getvariable(unitLiteral))]=level;
+        unset.emplace_back(unitLiteral);
+        satisfiedVariables++;
+        #ifdef DEBUG2
+        cout<<unitLiteral<<"?"<<endl;
+        for(int i=1;i<=2*totalVariables;i++)
+            clauseset->printLiteral(i);
+        #endif
+        // Now we look at all the clauses where complement of this literal occurs   
+        int compUnitLiteral=complement(unitLiteral);  
+        cout<<compUnitLiteral<<"$$$$$$$"<<clauseset->literalClauseMap[compUnitLiteral]->size()<<endl;
+        vector <int> eraseList;
+        if(clauseset->literalClauseMap[compUnitLiteral]->size()>0){  
+            // iterate over all the clauses containing complement of that literal                       
+            for(auto clauseNum:*(clauseset->literalClauseMap[compUnitLiteral])){
+                iter++;
+                if(clauseset->isSatisfied(clauseNum))continue;
+                cout<<clauseNum<<"$#$#$#$#"<<endl;
+                int idx1=clauseset->watchedLit[clauseNum].first;
+                int idx2=clauseset->watchedLit[clauseNum].second;
+                bool flag=false;
+                if(clauseset->clauses[clauseNum].literals[idx1]==compUnitLiteral){
+                    for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
+                        if(i==idx2 || i==idx1)continue;
+                        if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
+                            state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
+                            {
+                                clauseset->watchedLit[clauseNum].first=i;
+                                clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
+                                eraseList.push_back(clauseNum);
+                                flag=true;
+                                break;
+                            }
+                    }
+                    if(!flag){
+                        cout<<clauseNum<<"$$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx2]<<endl;
+                        #ifdef DEBUG
+                        #endif
+                        int newliteral=clauseset->clauses[clauseNum].literals[idx2];
+                        unitLiterals.emplace_back(newliteral);
+                        state[newliteral].antClause=clauseNum;
+                        cout<<newliteral<<" "<<clauseNum<<"^^"<<endl;
+                        // state[newliteral].level=level;
+                    }
+                }else{
+                        for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
+                        if(i==idx2 || i==idx1)continue;
+                        if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
+                            state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
+                            {
+                                clauseset->watchedLit[clauseNum].second=i;
+                                clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
+                                eraseList.push_back(clauseNum);
+                                flag=true;
+                                break;
+                            }
+                    }
+                    if(!flag){
+                        cout<<clauseNum<<"$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx1]<<endl;
+                        #ifdef DEBUG
+                        #endif
+                        int newliteral=clauseset->clauses[clauseNum].literals[idx1];
+                        unitLiterals.emplace_back(newliteral);
+                        state[newliteral].antClause=clauseNum;
+                        cout<<newliteral<<" "<<clauseNum<<"^"<<endl;
+                        // state[newliteral].level=level;
+                    }
+                }                     
+            }  
+            for(auto k:eraseList){
+                clauseset->literalClauseMap[compUnitLiteral]->erase(k);
+            }
+        }  
+    }   
+    unitLiterals.clear();
+    cout<<satisfiedVariables<<endl;
+    if(satisfiedVariables==totalVariables)
+        return {true,-1};
+    return {true,0}; // no conflict in unitPropogation go to deduce stage
 }
 class SATsolver{
     private:        
         clauseSet* clauseset; // a pointer to clauseset object
     public: 
         SATsolver(clauseSet* cs):clauseset(cs){} // constructor which takes a pointer to clauseset
-        /**
-         * dpll function which takes argument. All arguments are passed as refrences except
-         * satisfiedClauses which is an int
-         * currentState object(count of unsatisfied literal, which clauses are yet to be satisfied),
-         * Current assignment of the literals and 
-         * number of satisfied clauses(for termination)   
-         * returns whether clause is satisfied with current state of clauses
-         * and assignment to variables      
-         */
-        pair<bool,int> dpll(int satisfiedVariables,int level){ 
-
-            /////////////UNIT PROPOGATION STARTS/////////////////
+        pair<bool,int> dpll(int level){ 
             vector <int> unset;
-            // to keep track which unitLiterals are processed            
-            vector <bool> visited(2*totalVariables+5);
-            for(int i=0;i<unitLiterals.size();i++){
-
-                int unitLiteral=unitLiterals[i];
-                //cout<<unitLiteral<<"--"<<level<<endl;
-                #ifdef DEBUG
-                #endif
-                if(visited[unitLiteral]) // if processed then continue;
-                    continue;
-                visited[unitLiteral]=true; // mark visited to true              
-                if(state[complement(unitLiteral)].assigned){
-                    #ifdef DEBUG
-                    cout<<"fail state"<<" "<<unitLiteral<<" "<<level<<endl;
-                    for(int i=1;i<=2*totalVariables;i++)
-                        cout<<state[i].assigned<<" ";
-                    cout<<endl;
-                    for(auto lit:unset)
-                        cout<<lit<<" ";
-                    cout<<endl;
-                    #endif
-                    // clause addition
-                    clause cl;
-                    //cout<<unitLiteral<<" "<<state[unitLiteral].antClause<<"???"<<endl;
-                    cl=clauseset->clauses[state[unitLiteral].antClause];
-                    //cout<<state[unitLiteral].level<<"???????????????????????"<<level<<endl;
-                    //cl.printClause();
-                    for(int j=i-1;j>=0;j--){
-                        int lit=unitLiterals[j];
-                        if(state[lit].antClause==0)continue;
-                        for(auto lit2:cl.literals){
-                            if(lit2==lit || lit2==complement(lit)){
-                                //cout<<lit<<"---";
-                                //clauseset->clauses[state[lit].antClause].printClause();
-                                cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
-                                //cl.printClause();
-                                int counter3=0,max1=0;
-                                for(auto lit3:cl.literals){
-                                    //cout<<state[lit3].level<<" "<<state[complement(lit3)].level<<endl;
-                                    //assert(!(state[lit3].level!=0 && state[complement(lit3)].level!=0));
-                                    int level1=depth[getvariable(lit3)];
-                                    //cout<<lit3<<" "<<level<<" "<<level1<<endl;
-                                    counter3+=(level1==level);
-                                    if(level1!=level)
-                                        max1=max(max1,level1);
-                                }
-                                //cout<<"??????????????????????"<<max1<<" "<<counter3<<endl;
-                                if(max1==0)
-                                    max1=level;
-                                if(counter3==1){
-                                    unitLiterals.clear();
-                                    unSet(unset);
-                                    cl.printClause();
-                                    temporaryBuffer.emplace_back(cl);
-                                    //cout<<level<<" jump to level "<<min(level-1,max1)<<endl;
-                                    //cout<<level<<" "<<min(level-1,max1)<<endl;
-                                    return {false,min(level-1,max1)};
-                                }
-                                //cl.printClause();
-                            }
-                        }
-                    }
-                    cl.printClause();                    
-                    temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
-                    //clauseset->addClause(cl);
-                    //assert(1==0); // should not reached here check again./
-                    unitLiterals.clear();
-                    unSet(unset);
-                    return {false,level-1};
-                }
-                if(state[unitLiteral].assigned)continue;
-                state[unitLiteral].assigned=true; // mark that literal set to true
-                depth[(getvariable(unitLiteral))]=level;
-                unset.emplace_back(unitLiteral);
-                satisfiedVariables++;
-                #ifdef DEBUG2
-                cout<<unitLiteral<<"?"<<endl;
-                for(int i=1;i<=2*totalVariables;i++)
-                    clauseset->printLiteral(i);
-                #endif
-                // Now we look at all the clauses where complement of this literal occurs   
-                int compUnitLiteral=complement(unitLiteral);  
-                vector <int> eraseList;
-                if(clauseset->literalClauseMap[compUnitLiteral]->size()>0){  
-                    // iterate over all the clauses containing complement of that literal                       
-                    for(auto clauseNum:*(clauseset->literalClauseMap[compUnitLiteral])){
-                        iter++;
-                        if(clauseset->isSatisfied(clauseNum))continue;
-                        int idx1=clauseset->watchedLit[clauseNum].first;
-                        int idx2=clauseset->watchedLit[clauseNum].second;
-                        bool flag=false;
-                        if(clauseset->clauses[clauseNum].literals[idx1]==compUnitLiteral){
-                            for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
-                                if(i==idx2 || i==idx1)continue;
-                                if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
-                                    state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
-                                    {
-                                        clauseset->watchedLit[clauseNum].first=i;
-                                        clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
-                                        eraseList.push_back(clauseNum);
-                                        flag=true;
-                                        break;
-                                    }
-                            }
-                            if(!flag){
-                                #ifdef DEBUG
-                                //cout<<clauseNum<<"$$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx2]<<endl;
-                                #endif
-                                int newliteral=clauseset->clauses[clauseNum].literals[idx2];
-                                unitLiterals.emplace_back(newliteral);
-                                state[newliteral].antClause=clauseNum;
-                                cout<<newliteral<<" "<<clauseNum<<"^^"<<endl;
-                                // state[newliteral].level=level;
-                            }
-                        }else{
-                             for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
-                                if(i==idx2 || i==idx1)continue;
-                               if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
-                                    state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
-                                    {
-                                        clauseset->watchedLit[clauseNum].second=i;
-                                        clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
-                                        eraseList.push_back(clauseNum);
-                                        flag=true;
-                                        break;
-                                    }
-                            }
-                            if(!flag){
-                                #ifdef DEBUG
-                                //cout<<clauseNum<<"$$"<<compUnitLiteral<<" "<<clauseset->clauses[clauseNum].literals[idx1]<<endl;
-                                #endif
-                                int newliteral=clauseset->clauses[clauseNum].literals[idx1];
-                                unitLiterals.emplace_back(newliteral);
-                                state[newliteral].antClause=clauseNum;
-                                cout<<newliteral<<" "<<clauseNum<<"^"<<endl;
-                                // state[newliteral].level=level;
-                            }
-                        }                     
-                    }  
-                    for(auto k:eraseList){
-                        clauseset->literalClauseMap[compUnitLiteral]->erase(k);
-                    }
-                }  
-            }     
+            /////////////UNIT PROPOGATION STARTS/////////////////
+            pair<bool,int>retVal=unitPropogation(unset,level,clauseset);
+            if(retVal.first!=true){
+                unSet(unset);                
+                return retVal;
+            }
             if(satisfiedVariables==totalVariables){
-                #ifdef DEBUG
-                for(int i=1;i<=totalClauses;i++)
-                    cout<<i<<"*"<<clauseset->watchedLit[i].first<<" "<<clauseset->watchedLit[i].second<<endl;;
-                #endif
-                // unSet(unset);
                 return {true,0};
             }
-            /////////////UNIT PROPOGATION COMPLETED/////////////////
-            // clear the unitLiterals list as all of them been taken care of
-               
+            unitLiterals.clear();
             int temp=0;
-          
-            ///////////// HEURISTIC START ////////////////////////////
-            /**
-             * Chose among the unassigned variables that occurs the most (both positive and negated literal)
-             * This way we deal with a lot of clauses most of them are satisfied and others
-             * reach near unit propogation.
-             * This heuristic gave the best performance over other heuristics such as
-             * literal satifying shortest clauses, first unasigned literal 
-             * and randomly selecting literal.             * 
-             */
-            // bestLiteral denotes the literal corresponding to highest valueof
-            // literal+complement(literal) given by heuristic and
-            // bestValue is the corresponding value for that literal
-            // we then flip polarity of literal with 1/2 probablity
-           
-            int random=rand()%2;
-            // randomly choose either positive or negated literal
-            // if(random%2==0)
-            //     bestLiteral=complement(bestLiteral);
-
-            ///////////// HEURISTIC ENDS ////////////////////////////
-
-            // add the selected literal to unitLiterals
-            
-            /**
-             * make a copy of current state and assigned vector   
-             * all arguments are passed by refrence.
-             * Doing this saves 1 copy. At each call only one copy is created
-             * And this and the original are passed as refrences
-             */
-
-            // create a copy of current state
-            //cout<<"?????????????????\n";
-            // create a copy of assigned vector
-            // 1st DPLL call
             while(1){
                 int bestLiteral=0,bestValue=-1;
                 for(int i=1;i<2*totalVariables;i+=2){
@@ -421,40 +389,38 @@ class SATsolver{
                 }
                 if(bestLiteral==0){
                     unSet(unset);
+                    assert("1==0"); // analyse this case
                     return {false,level-1};
                 }                
-                unitLiterals.emplace_back(bestLiteral);
-                pair<bool,int> ret=dpll(satisfiedVariables,level+1);
-                cout<<ret.first<<" "<<ret.second<<"?"<<clauseset->clauses.size()<<endl;
+                cout<<bestLiteral<<endl;
+                unitLiterals.insert(unitLiterals.begin(),bestLiteral);
+                decisionLiteral[level+1]=bestLiteral;
+                pair<bool,int> ret=dpll(level+1);
+                cout<<ret.first<<" "<<ret.second<<"?"<<level<<" "<<clauseset->clauses.size()<<" "<<temporaryBuffer.size()<<endl;
                 if(ret.first)
                     return {true,0};
+                decisionLiteral[level+1]=0; // we either go up or stay at same level so 
+                // discard current decision variable taken at this level(best literal)
+                unSet(unset); // check again as we need to restart even if same level
                 if(level>ret.second){ // this wants to go up more 
-                    unSet(unset);
                     return {false,ret.second};
                 }    
                 else if(level==ret.second){
                     for(auto clause:temporaryBuffer)
                         clauseset->addClause(clause);
                     temporaryBuffer.clear();
+                    cout<<decisionLiteral[level]<<" decision literal"<<endl;                    
+                    unitLiterals.emplace_back(decisionLiteral[level]);
+                    vector<int>unset2;
+                    pair<bool,int> retVal2=unitPropogation(unset2,level,clauseset);
+                    cout<<"done deduce"<<" "<<retVal2.first<<endl;
+                    assert(retVal2.first==true);// check again
+                    cout<<satisfiedVariables<<" "<<totalVariables<<endl;
+                    if(retVal2.second==-1){                  
+                      return {true,0};
+                    }
                 }
-            }
-            // unitLiterals.emplace_back(bestLiteral);
-            // for(auto cl:temporaryBuffer)
-            //     clauseset->addClause(cl);
-            // temporaryBuffer.clear();          
-            // remove the literal that was selected earlier and instead 
-            // add the negation of that literal in unitLiterals
-            // 2nd DPLL call
-            //cout<<unitLiterals.size()<<endl;
-            // unitLiterals.emplace_back(complement(bestLiteral));
-            // pair<bool,int> ret2=dpll(satisfiedVariables,level+1);
-            // if(ret2.first)
-            //     return {true,0};
-            // else
-            // {
-            //     unSet(unset);
-            //     return {false,(int)min(level-1,ret2.second)};
-            // }            
+            }          
         }
 };
 int main(){
@@ -472,6 +438,7 @@ int main(){
     cin>>str>>totalVariables>>totalClauses;
     state.resize(2*totalVariables+5);
     depth.resize(totalVariables+5);
+    decisionLiteral.resize(totalVariables+5);
     clauseSet clauses; // clauseset object
     vector<int>input; // stores literals
     while(cin>>inp){
@@ -493,7 +460,7 @@ int main(){
     // assigned vector initially all false   
 
     // CALL TO SOLVER
-    pair<bool,int> ret=dpllsolver.dpll(0,0); 
+    pair<bool,int> ret=dpllsolver.dpll(0); 
     cout<<ret.first<<endl;
     #ifdef OUTPUT
     if(!ret.first)
