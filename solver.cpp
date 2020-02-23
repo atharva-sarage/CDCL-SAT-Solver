@@ -6,6 +6,7 @@
 using namespace std;
 //#define DEBUG
 //#define DEBUG3
+//#define LEARNEDCLAUSES
 //#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 struct variableState{
@@ -74,7 +75,7 @@ class clause{
             return tautology;
         }
         static clause resolution(clause a,clause b,int literal){
-            vector<bool> visited(2*totalVariables);
+            vector<bool> visited(2*totalVariables+5,false);
             clause newClause;
             for(auto lit:a.literals){
                 visited[lit]=true;
@@ -88,6 +89,11 @@ class clause{
                     visited[lit]=true;
                 }                    
             }
+            // cout<<"resolution start"<<" "<<literal<<endl;
+            // a.printClause();
+            // b.printClause();
+            // newClause.printClause();
+            // cout<<"resolution done"<<endl;
             return newClause;
         }
         void printClause(){
@@ -146,9 +152,9 @@ class clauseSet{
                     level0Variables.emplace_back(cs.literals.front());
                     unitLiterals=level0Variables;
                     watchedLit.push_back({0,0});
-                    //cout<<"Learned unit clause"<<endl;
-                    //cout<<"unit here "<<cs.literals.front()<<endl;
                     #ifdef DEBUG
+                    //cout<<"unit here "<<cs.literals.front()<<endl;
+                    cout<<"Learned unit clause"<<" "<<cs.literals.front()<<endl;
                     #endif
                 }
                 else{
@@ -229,8 +235,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         if(visited[unitLiteral]) // if processed then continue;
             continue;
         visited[unitLiteral]=true; // mark visited to true 
+        // cout<<unitLiteral<<"--"<<level<<" "<<state[unitLiteral].antClause<<endl;
+        // if(level==0){
+        //     cout<<"level 0\n";
+        //     clauseset->clauses[state[unitLiteral].antClause].printClause();
+        //     //1416
+        // }            
         #ifdef DEBUG             
-        cout<<unitLiteral<<"--"<<level<<endl;
         #endif
         if(state[complement(unitLiteral)].assigned){
             #ifdef DEBUG
@@ -247,15 +258,15 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
             //cout<<unitLiteral<<" "<<state[unitLiteral].antClause<<"???"<<endl;
             cl=clauseset->clauses[state[unitLiteral].antClause];
             //cout<<state[unitLiteral].level<<"???????????????????????"<<level<<endl;
+            //cl.printClause();
             #ifdef DEBUG
-            cl.printClause();
             #endif
             for(int j=i-1;j>=0;j--){
                 int lit=unitLiterals[j];
                 if(state[lit].antClause==0)continue;
                 for(auto lit2:cl.literals){
                     if(lit2==lit || lit2==complement(lit)){
-                        //cout<<lit<<"---";
+                        //cout<<lit<<"---"<<endl;
                         #ifdef DEBUG
                         clauseset->clauses[state[lit].antClause].printClause();
                         #endif
@@ -280,9 +291,9 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                             unitLiterals.clear();
                             temporaryBuffer.emplace_back(cl);
                             //cout<<level<<" jump to level "<<min(level-1,max1)<<endl;
-                            #ifdef DEBUG
+                            #ifdef LEARNEDCLAUSES
                             cl.printClause();
-                            cout<<level<<" "<<max1<<"====="<<min(level-1,max1)<<endl;
+                            //cout<<level<<" "<<max1<<"====="<<min(level-1,max1)<<endl;
                             #endif
                             return {false,max1};
                         }
@@ -290,7 +301,7 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                     }
                 }
             }
-            #ifdef DEBUG
+            #ifdef LEARNEDCLAUSES
             cl.printClause();                    
             for(int i=1;i<=level;i++)
                 cout<<i<<" "<<decisionLiteral[i]<<endl;
@@ -397,6 +408,7 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
     int satisfiedVariables2=0;
     for(int i=1;i<=2*totalVariables;i++)
         satisfiedVariables2+=state[i].assigned;
+    //cout<<satisfiedVariables2<<" "<<totalVariables<<endl;
     if(satisfiedVariables2==totalVariables)
         return {true,-1};
     return {true,0}; // no conflict in unitPropogation go to deduce stage
@@ -407,6 +419,7 @@ class SATsolver{
     public: 
         SATsolver(clauseSet* cs):clauseset(cs){} // constructor which takes a pointer to clauseset
         pair<bool,int> dpll(int level){ 
+            //cout<<level<<endl;
             vector <int> unset;
             /////////////UNIT PROPOGATION STARTS/////////////////
             pair<bool,int>retVal=unitPropogation(unset,level,clauseset);
@@ -470,6 +483,8 @@ class SATsolver{
                     #endif
                     if(level!=0) // check again
                         unitLiterals.emplace_back(decisionLiteral[level]);
+                    else
+                        unitLiterals=level0Variables;
                     pair<bool,int> retVal2=unitPropogation(unset2,level,clauseset);
                     #ifdef DEBUG
                     for(auto k:unset2)
@@ -525,7 +540,6 @@ int main(){
         }    
     }
     //cout<<"????????"<<endl;
-    clause newc=clause::resolution(clauses.clauses[1],clauses.clauses[2],1); 
     //  for(int i=1;i<=2*totalVariables;i++)
     //     clauses.printLiteral(i);   
     SATsolver dpllsolver(&clauses); // solver object

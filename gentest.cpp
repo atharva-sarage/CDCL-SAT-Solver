@@ -23,8 +23,8 @@ int rand(int a, int b) {
 int main(int argc, char* argv[]) {
     srand(atoi(argv[1]));
 	IOS;
-    int n=rand(5,10);
-    int m=rand(30,60);
+    int n=rand(4,20);
+    int m=rand(10,50);
     cout<<"p cnf "<<n<<" "<<m<<endl;
     while(m--){      
         set<int>s;

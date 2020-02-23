@@ -4,7 +4,7 @@ mkdir dump
 #CBS_k3_n100_m403_b10
 #UUF200.860.1000
 
-g++ solver.cpp --std=c++11
+g++ solver.cpp --std=c++11 -O3
 rm ./dump/out1.txt
 for filename in $1/*.cnf; do   
     echo "$filename"
