@@ -12,12 +12,15 @@ using namespace std;
 struct variableState{
     int assigned,level,antClause;
 };
+int conflicts;
+set<pair<int,int>>variableActivity;
 vector<int>level0Variables;
 vector<bool>finalAssignment;
 vector<int>unitLiterals;
 vector <variableState> state;
 vector <int> depth;
 vector <int> decisionLiteral;
+vector <int> currentScore;
 int totalClauses,totalVariables; // These are initialized in main()
 // Given a literal return its complement literal
 inline int complement(int i){
@@ -135,14 +138,20 @@ class clauseSet{
          * a tautology. It then updates countClause and the literalClauseMap
          */
         void addClause(clause cs){
+            //cout<<clauses.size()<<endl;
             // cs.printClause();
             for(auto lit:cs.literals){
-                #ifdef DEBUG3
-                cout<<lit<<"@"<<state[lit].assigned<<" "<<state[complement(lit)].assigned<<endl;
-                #endif
                 if(state[lit].assigned==true)
                     return;
+                int var=getvariable(lit);
+                assert(var!=0);
+                pair <int,int> deletePair={currentScore[var],var};
+                currentScore[var]++; 
+                pair <int,int> addPair={currentScore[var],var};
+                variableActivity.erase(deletePair);
+                variableActivity.insert(addPair);
             }
+
             //cout<<endl;
             if(cs.isTautology())
                 return;
@@ -235,7 +244,7 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         if(visited[unitLiteral]) // if processed then continue;
             continue;
         visited[unitLiteral]=true; // mark visited to true 
-        // cout<<unitLiteral<<"--"<<level<<" "<<state[unitLiteral].antClause<<endl;
+        //cout<<unitLiteral<<"--"<<level<<" "<<state[unitLiteral].antClause<<endl;
         // if(level==0){
         //     cout<<"level 0\n";
         //     clauseset->clauses[state[unitLiteral].antClause].printClause();
@@ -244,6 +253,19 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
         #ifdef DEBUG             
         #endif
         if(state[complement(unitLiteral)].assigned){
+            conflicts++;
+            if(conflicts%256==0){// divide activity by half
+                auto itr=variableActivity.begin();
+                while(itr!=variableActivity.end()){
+                    auto itr2=itr;
+                    itr++;
+                    assert(itr2->second!=0);
+                    pair<int,int>p1 = {1+itr2->first/2,itr2->second};
+                    variableActivity.erase(itr2);
+                    variableActivity.insert(p1);
+                    currentScore[p1.second]=p1.first;
+                }                             
+            }
             #ifdef DEBUG
             cout<<"fail state"<<" "<<unitLiteral<<" "<<level<<endl;
             for(int i=1;i<=2*totalVariables;i++)
@@ -266,8 +288,8 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                 if(state[lit].antClause==0)continue;
                 for(auto lit2:cl.literals){
                     if(lit2==lit || lit2==complement(lit)){
-                        //cout<<lit<<"---"<<endl;
                         #ifdef DEBUG
+                        cout<<lit<<"---"<<endl;
                         clauseset->clauses[state[lit].antClause].printClause();
                         #endif
                         cl=clause::resolution(cl,clauseset->clauses[state[lit].antClause],lit);
@@ -408,8 +430,8 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
     int satisfiedVariables2=0;
     for(int i=1;i<=2*totalVariables;i++)
         satisfiedVariables2+=state[i].assigned;
-    //cout<<satisfiedVariables2<<" "<<totalVariables<<endl;
-    if(satisfiedVariables2==totalVariables)
+    assert(satisfiedVariables2==satisfiedVariables);
+    if(satisfiedVariables==totalVariables)
         return {true,-1};
     return {true,0}; // no conflict in unitPropogation go to deduce stage
 }
@@ -428,10 +450,11 @@ class SATsolver{
                 unset.clear();              
                 return retVal;
             }
-            int satisfiedVariables2=0;
-            for(int i=1;i<=2*totalVariables;i++)
-                satisfiedVariables2+=state[i].assigned;
-            if(satisfiedVariables2==totalVariables){
+            // int satisfiedVariables2=0;
+            // for(int i=1;i<=2*totalVariables;i++)
+            //     satisfiedVariables2+=state[i].assigned;
+            //assert(satisfiedVariables==satisfiedVariables2);
+            if(satisfiedVariables==totalVariables){
                 return {true,0};
             }
             unitLiterals.clear();
@@ -439,36 +462,41 @@ class SATsolver{
             vector<int>unset2;
 
             while(1){
-                int bestLiteral=0,bestValue=-1;
-                for(int i=1;i<2*totalVariables;i+=2){
-                    if(!state[i].assigned && !state[i+1].assigned){ // both the literals are unassigned
-                        bestLiteral=i;
+                int bestLiteral=0,bestValue=-1;              
+                for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
+                    int var=it->second;                       
+                    if(!state[2*var].assigned && !state[2*var-1].assigned){ // both the literals are unassigned
+                        bestLiteral=2*var-1;
                         break;
                     }
-                }
+                }              
+                // cout<<"????"<<getvariable(bestLiteral)<<endl;
+                // for(int i=1;i<2*totalVariables;i+=2){
+                //     if(!state[i].assigned && !state[i+1].assigned){ // both the literals are unassigned
+                //         bestLiteral=i;
+                //         break;
+                //     }
+                // }
                 if(bestLiteral==0){
                     unSet(unset);
                     assert("1==0"); // analyse this case
                     return {false,level-1};
                 }                
-                //cout<<bestLiteral<<endl;
                 unitLiterals.insert(unitLiterals.begin(),bestLiteral);
                 decisionLiteral[level+1]=bestLiteral;
                 //cout<<satisfiedVariables<<"satisfied variables"<<endl;
                 pair<bool,int> ret=dpll(level+1);
                 #ifdef DEBUG
-                cout<<"call"<<ret.first<<" "<<ret.second<<"?"<<level<<" "<<clauseset->clauses.size()<<" "<<temporaryBuffer.size()<<endl;
                 #endif
                 if(ret.first)
                     return {true,0};
                 decisionLiteral[level+1]=0; // we either go up or stay at same level so 
                 // discard current decision variable taken at this level(best literal)
                 unSet(unset); // check again as we need to restart even if same level
-                unSet(unset2,0);
+                unSet(unset2); // throw previous unit propogation information
                 unset.clear();
                 unset2.clear();
-                if(level>ret.second){ // this wants to go up more 
-                    
+                if(level>ret.second){ // this wants to go up more                     
                     return {false,ret.second};
                 }    
                 else if(level==ret.second){
@@ -526,8 +554,11 @@ int main(){
     state.resize(2*totalVariables+5);
     depth.resize(totalVariables+5);
     decisionLiteral.resize(totalVariables+5);
+    currentScore.resize(totalVariables+5);
     clauseSet clauses; // clauseset object
     vector<int>input; // stores literals
+    for(int i=1;i<=totalVariables;i++)
+        variableActivity.insert({0,i});
     while(cin>>inp){
         if(inp==0){
             clause cl;
