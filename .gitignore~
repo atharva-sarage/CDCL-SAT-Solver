@@ -1,0 +1,5 @@
+brute
+tests
+*.out
+correctAns.txt
+correct

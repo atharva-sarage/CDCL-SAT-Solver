@@ -1,5 +1,10 @@
+solver2.cpp
 brute
 tests
 *.out
+*.pdf
 correctAns.txt
+correctAns2.txt
+correctAns3.txt
 correct
+out*

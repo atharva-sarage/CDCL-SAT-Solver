@@ -13,7 +13,7 @@ struct variableState{
     int assigned,level,antClause;
 };
 int conflicts;
-int threshold=100,restartCounter=0;
+int threshold=100;
 set<pair<int,int>>variableActivity;
 vector<int>level0Variables;
 vector<bool>finalAssignment;
@@ -266,20 +266,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                     variableActivity.insert(p1);
                     currentScore[p1.second]=p1.first;
                 }
+                // if(conflicts==threshold){
+                //     // restart
+                //     unitLiterals.clear();
+                //     threshold=threshold*1.5;
+                //     return {false,0};
+                // }                            
             }
-            if(conflicts==threshold){
-                // restart
-                int level=1;
-                for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
-                    if(it->second!=getvariable(decisionLiteral[level]))
-                        break;
-                    level++;
-                }
-                //cout<<(restartCounter++)<<" "<<level-1<<endl;
-                unitLiterals.clear();
-                threshold=threshold*1.5;
-                return {false,level-1};
-            }                            
             #ifdef DEBUG
             cout<<"fail state"<<" "<<unitLiteral<<" "<<level<<endl;
             for(int i=1;i<=2*totalVariables;i++)

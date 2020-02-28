@@ -4,12 +4,11 @@ mkdir dump
 #CBS_k3_n100_m403_b10
 #UUF200.860.1000
 
-g++ solver.cpp --std=c++11 -O3
+g++ -o a2.out solver2.cpp --std=c++11 -O3
 rm ./dump/out1.txt
 for filename in $1/*.cnf; do   
     echo "$filename"
-    ./a.out < $filename >> ./dump/out1.txt
-    #./a.out < $filename
+    ./a2.out < $filename >> ./dump/out1.txt
     #./correct2 < $filename >> correctAns3.txt
     time ./a.out < $filename
     echo "$filename"

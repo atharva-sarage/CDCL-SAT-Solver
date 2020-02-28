@@ -269,13 +269,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
             }
             if(conflicts==threshold){
                 // restart
-                int level=1;
-                for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
-                    if(it->second!=getvariable(decisionLiteral[level]))
-                        break;
-                    level++;
-                }
-                //cout<<(restartCounter++)<<" "<<level-1<<endl;
+                // int level=1;
+                // for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
+                //     if(it->second!=decisionLiteral[level])
+                //         break;
+                //     level++;
+                // }
+                // cout<<(restartCounter++)<<" "<<level-1<<endl;
                 unitLiterals.clear();
                 threshold=threshold*1.5;
                 return {false,level-1};
@@ -498,8 +498,8 @@ class SATsolver{
                 }      
                 int random=rand()%2;
                 // randomly choose either positive or negated literal
-                if(random%2==0)
-                    bestLiteral=complement(bestLiteral);          
+                // if(random%2==0)
+                //     bestLiteral=complement(bestLiteral);          
                 unitLiterals.insert(unitLiterals.begin(),bestLiteral);
                 decisionLiteral[level+1]=bestLiteral;
                 //cout<<satisfiedVariables<<"satisfied variables"<<endl;
