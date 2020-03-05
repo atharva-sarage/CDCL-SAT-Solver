@@ -280,12 +280,6 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
          * CONFLICT!!
          */
         if(state[complement(unitLiteral)].assigned){
-            /**
-             * Conflict at level 0 then formula is UNSAT. As level 0 forces all its 
-             * variables to be true. return false.
-             */
-            if(level==0)
-                return {false,-1};
             conflicts++;
             // VSIDS after a fixed num of conflicts(hyperparameter) activity of each variable
             // is halved
@@ -303,30 +297,29 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
                 }
             }
             // after conflicts cross threshold we do a restart
-            // if(conflicts==threshold){
-            //     // restart
-            //     int level=1;
-            //     /**
-            //      * Reusing the Assignment Trail in CDCL Solvers 
-            //      * http://satassociation.org/jsat/index.php/jsat/article/view/89
-            //        * partial restart to MTL (as per paper terminology)
-            //      * We have some decision trail and now we do a restart
-            //      * New decision variables will be chosen according to Current activity of variables
-            //      * Now if some part of our decision trail matches the optimal decision trail then we 
-            //      * can reuse it and need not do it again.
-            //      * so we start at first point of difference of optimal and current decision tral
-            //      */
+            if(conflicts==threshold){
+                // restart
+                int level=1;
+                /**
+                 * Reusing the Assignment Trail in CDCL Solvers 
+                 * http://satassociation.org/jsat/index.php/jsat/article/view/89
+                 * We have some decision trail and now we do a restart
+                 * New decision variables will be chosen according to Current activity of variables
+                 * Now if some part of our decision trail matches the optimal decision trail then we 
+                 * can reuse it and need not do it again.
+                 * so we start at first point of difference of optimal and current decision tral
+                 */
 
-            //     for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
-            //         if(it->second!=getvariable(decisionLiteral[level]))
-            //             break;
-            //         level++;
-            //     }
-            //     // clear all the unitLiterals list as we jumping to new level.
-            //     unitLiterals.clear();
-            //     threshold=threshold*2; // increase threshold
-            //     return {false,level-1};
-            // }                            
+                // for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
+                //     if(it->second!=getvariable(decisionLiteral[level]))
+                //         break;
+                //     level++;
+                // }
+                // clear all the unitLiterals list as we jumping to new level.
+                unitLiterals.clear();
+                threshold=threshold*2; // increase threshold
+                return {false,level-1};
+            }                            
             // Learnt Clause Addition
             // cl is the antecedant clause of the unitLiteral involved in conflict
             /**
@@ -366,9 +359,23 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
                         }
                     }
                 }
-            }   
-            // sholud not reach here
-            assert(1==0);
+            }
+            /**
+             * THIS IS INTRESTING 
+             * If we do not obtain a UIP then this must be an empty clause.
+             * This happened because I did not resolve with unitLiterals at level 0.
+             * Since unit sized clauses at level 0 do not have antecedent clause
+             * They are like (decision literals which must be true).
+             * So the formula is UNSAT.
+             * ASSERT Statements proves this
+             */
+            assert(level==0);             
+            // empty clause
+            for(auto lit3:cl.literals)
+                assert(state[lit3].assigned==false && state[complement(lit3)].assigned==true );
+            temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
+            unitLiterals.clear();            
+            return {false,level-1};
         }
 
         if(state[unitLiteral].assigned)continue; // if already assigned continue

@@ -1,4 +1,5 @@
 solver2.cpp
+*.sh
 brute
 tests
 *.out

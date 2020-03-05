@@ -4,6 +4,9 @@
 ******************************************/
 #include<bits/stdc++.h>
 using namespace std;
+//#define DEBUG
+//#define DEBUG3
+//#define LEARNEDCLAUSES
 //#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
 struct literalState{
@@ -27,8 +30,7 @@ set<pair<int,int>>variableActivity;
  * level0Variables
  * all the literals which are true at level 0.
  * Literals are added to this when we learn a clause 
- * containing only one literal or unitsized clause was present in original clauses.
- * Forcing it to be true.
+ * containing only one literal. Forcing it to be true.
  */
 vector<int>level0Literals;
 vector<bool>finalAssignment;// stores the finalAssignment of the literals
@@ -95,9 +97,9 @@ class clause{
             return tautology;
         }
         // returns the resoluted clause of 2 clauses  a ,b over a literal c
-        // where one clause contains c and other contains negation c
+        // where one clause contains c ans other contains negation  c
         static clause resolution(clause a,clause b,int c){
-            //visited- to keep track of which literals are added to resoluted clause
+            // to keep track of which literals are added to resoluted clause
             vector<bool> visited(2*totalVariables+5,false);
             clause resolutedClause; // 
             for(auto lit:a.literals){
@@ -125,6 +127,14 @@ class clause{
         }
 };
 /**
+ * class clauseSetCurrentState
+ * It maintains state of the clauses 
+ * It stores count of unsatified literals in each clause,
+ * whether a clause is satisfied and 
+ * stores literals of clauses that are UnitClauses.(clauses containing only one unsatisfied literal)
+ * Count of each literal in clauses
+ */
+/**
  * Clause clauseSet
  * Stores all the clauses information
  */
@@ -136,7 +146,7 @@ class clauseSet{
         vector<unordered_set<int>*> literalClauseMap;  
 
         // for each clause we keep 2 unassigned literals.
-        // watchedLit[1] gives a pair, the 2 watched literals for cluase 1        
+        // watchedLit[1] gives the 2 watched literals for cluase 1        
         vector<pair<int,int>>watchedLit;    
         // state stores the initial state of all the clauses
         clauseSet(){                 
@@ -175,8 +185,8 @@ class clauseSet{
                 clauses.emplace_back(cs); // add to clauses
                 if(cs.literals.size() == 1){ // It is a unit sized Clause
                     level0Literals.emplace_back(cs.literals.front()); // add it to level0literals
+                    // assign level0Literals to unitLiterals which will be resolved while unitPropogation
                     /**
-                     * assign level0Literals to unitLiterals which will be resolved while unitPropogation
                      * level0Literals are the literals that must be true. These are added when we learn                    
                      * a unit sized clause and backtrack to level 0. Now we set unitLiterals to level0Literals. 
                      * By a call to unitPropogation function all the inference is done at level 0.
@@ -188,7 +198,7 @@ class clauseSet{
                     /**
                      * We detect a unitClause if under current assignment we are
                      * able to find only 1 watched literal. If this happens then we 
-                     * add the other watched literal to unitLiterals as it must be set to true.
+                     * add it the literal to unitLiterals as it must be set to true.
                      */
                     int flag=0,idx1,idx2=-1,lit1,lit2=-1,idx3,lit3;
                     for(int i=0;i<cs.literals.size();i++){
@@ -244,29 +254,25 @@ int iter=0;
 vector<clause>temporaryBuffer; // to store newly learned clause
 int satisfiedVariables=0; // counter for total number of satisfied variables
 /**
- * unSetInformation function unsets all literals provided as argument.
+ * unSet function unsets all literals provided as argument.
  * assigned to false,depth to 0,antclause to 0
- * also reduces satisfied variables counter
+ * also redure satisfied variables counter
  */
-void unSetInformation(vector<int>&unsetLiterals){
-    for(auto lit:unsetLiterals){
+void unSet(vector<int>&unset){
+    for(auto lit:unset){
         state[lit].assigned=false;
         depth[getvariable(lit)]=0;
         state[lit].antClause=0;
     }
-    satisfiedVariables-=unsetLiterals.size();
+    satisfiedVariables-=unset.size();
 }
 /**
  * UnitPropogation Function
- * unitLiterals has all the literals that must be set to true 
- * unsetLiterals keeps track of all the literals that were set in this unitPropogation 
- * if we had to back track then we unset all the information that was
- * taken in this unitPropogation.
- * Returns {true,-1} No conflict and Formula is SAT
- *         {true,0 } No conflict but Formula is still not SAT
- *         {false,jumpLevel}  conflict was observed and we must backtrack to level jumplevel
+ * 
+ * 
+ * 
  */
-pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* clauseset){
+pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
 
     // to keep track which unitLiterals are processed            
     vector <bool> visited(2*totalVariables+5);
@@ -280,12 +286,6 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
          * CONFLICT!!
          */
         if(state[complement(unitLiteral)].assigned){
-            /**
-             * Conflict at level 0 then formula is UNSAT. As level 0 forces all its 
-             * variables to be true. return false.
-             */
-            if(level==0)
-                return {false,-1};
             conflicts++;
             // VSIDS after a fixed num of conflicts(hyperparameter) activity of each variable
             // is halved
@@ -303,30 +303,20 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
                 }
             }
             // after conflicts cross threshold we do a restart
-            // if(conflicts==threshold){
-            //     // restart
-            //     int level=1;
-            //     /**
-            //      * Reusing the Assignment Trail in CDCL Solvers 
-            //      * http://satassociation.org/jsat/index.php/jsat/article/view/89
-            //        * partial restart to MTL (as per paper terminology)
-            //      * We have some decision trail and now we do a restart
-            //      * New decision variables will be chosen according to Current activity of variables
-            //      * Now if some part of our decision trail matches the optimal decision trail then we 
-            //      * can reuse it and need not do it again.
-            //      * so we start at first point of difference of optimal and current decision tral
-            //      */
-
-            //     for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
-            //         if(it->second!=getvariable(decisionLiteral[level]))
-            //             break;
-            //         level++;
-            //     }
-            //     // clear all the unitLiterals list as we jumping to new level.
-            //     unitLiterals.clear();
-            //     threshold=threshold*2; // increase threshold
-            //     return {false,level-1};
-            // }                            
+            if(conflicts==threshold){
+                // restart
+                int level=1;
+                // heuristic explain and give link to paper
+                for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
+                    if(it->second!=getvariable(decisionLiteral[level]))
+                        break;
+                    level++;
+                }
+                // clear all the unitLiterals list as we jumping to new level.
+                unitLiterals.clear();
+                threshold=threshold*2; // increase threshold
+                return {false,level-1};
+            }                            
             // Learnt Clause Addition
             // cl is the antecedant clause of the unitLiteral involved in conflict
             /**
@@ -366,16 +356,30 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
                         }
                     }
                 }
-            }   
-            // sholud not reach here
-            assert(1==0);
+            }
+            /**
+             * THIS IS INTRESTING 
+             * If we do not obtain a UIP then this must be an empty clause.
+             * This happened because I did not resolve with unitLiterals at level 0.
+             * Since unit sized clauses at level 0 do not have antecedent clause
+             * They are like (decision literals which must be true).
+             * So the formula is UNSAT.
+             * ASSERT Statements proves this
+             */
+            assert(level==0);             
+            // empty clause
+            for(auto lit3:cl.literals)
+                assert(state[lit3].assigned==false && state[complement(lit3)].assigned==true );
+            temporaryBuffer.push_back(cl); // go to the decision level and then add this clause
+            unitLiterals.clear();            
+            return {false,level-1};
         }
 
         if(state[unitLiteral].assigned)continue; // if already assigned continue
         // set the parameters
         state[unitLiteral].assigned=true; // mark that literal set to true
         depth[(getvariable(unitLiteral))]=level;
-        unsetLiterals.emplace_back(unitLiteral);
+        unset.emplace_back(unitLiteral);
         satisfiedVariables++;
 
         // Now we look at all the clauses where complement of this literal occurs   
@@ -471,17 +475,15 @@ class SATsolver{
          * Step3: We pick a new variable that is not assigned till now and call cdcl(level+1)
          *        and call cdcl(level+1)
          *        now if it returns true we are done formula is SAT
-         *        If it returns false and orderes to jump at lower level we unsetLiterals all the information that
+         *        If it returns false and orderes to jump at lower level we unset all the information that
          *        was taken at this level and backtrack         
          *        It it tells us to stay at same level. Add new learned clause.
          *        Do unitpropogation with the same decision literal which was taken at this level to STEP 2         
-         *
-         * returns {true,0} if the formula is SAT
-         *         {false,jumpLevel} conflict was observed and we jump to jumpLevel
          */
         pair<bool,int> cdcl(int level){ 
-            vector <int> unsetLiterals;
-            pair<bool,int>retVal=unitPropogation(unsetLiterals,level,clauseset);
+            vector <int> unset;
+            /////////////UNIT PROPOGATION STARTS/////////////////
+            pair<bool,int>retVal=unitPropogation(unset,level,clauseset);
             /**
              * If there is a conflict then retVal's first element is false.
              * If we are at level 0 and there is a conflict during unitPropogation
@@ -493,8 +495,8 @@ class SATsolver{
             if(retVal.first!=true){
                 // unSet all the variables which were set during call to unitPropogation.
                 // there should no side effect due to unitPropogation if there was conflict.
-                unSetInformation(unsetLiterals);  
-                unsetLiterals.clear();              
+                unSet(unset);  
+                unset.clear();              
                 return retVal;
             }
             if(retVal.second == -1){
@@ -504,7 +506,7 @@ class SATsolver{
             // in this list so we clear it.
             unitLiterals.clear();
             int temp=0;
-            vector<int>unsetLiterals2;
+            vector<int>unset2;
 
             while(1){
                 
@@ -541,17 +543,17 @@ class SATsolver{
                 decisionLiteral[level+1]=0; 
                 /**
                  * discard unitpropogation information which is stored in either
-                 * unsetLiterals(first unitPropogation at this level)
-                 * unsetLiterals2(any other unitPropogation at this level)
+                 * unset(first unitPropogation at this level)
+                 * unset2(any other unitPropogation at this level)
                  * it may happen that we learn clause at keep comming back to same 
-                 * level. When this happens for the first time unsetLiterals has the
+                 * level. When this happens for the first time unset has the
                  * information any subsequent unitpropogatino information is 
-                 * present in unsetLiterals2.          * 
+                 * present in unset2.          * 
                  */
-                unSetInformation(unsetLiterals); 
-                unSetInformation(unsetLiterals2); 
-                unsetLiterals.clear();
-                unsetLiterals2.clear();
+                unSet(unset); 
+                unSet(unset2); 
+                unset.clear();
+                unset2.clear();
                 //  wants to go up the decision level as per returned value
                 if(level>ret.second){                      
                     return {false,ret.second};
@@ -573,12 +575,12 @@ class SATsolver{
                     else
                         unitLiterals=level0Literals;
                     // do unitPropogation at current level
-                    pair<bool,int> retVal2=unitPropogation(unsetLiterals2,level,clauseset);
+                    pair<bool,int> retVal2=unitPropogation(unset2,level,clauseset);
                     // if returend false conflict occured and we go up the tree
                     // as returned by unitPropogation
                     if(retVal2.first==false){
-                        unSetInformation(unsetLiterals2);
-                        unsetLiterals2.clear();
+                        unSet(unset2);
+                        unset2.clear();
                         return retVal2;
                     }
                     // returned value was true and -1 is second element means
