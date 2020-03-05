@@ -15,4 +15,4 @@ for filename in $1/*.cnf; do
     echo "$filename"
 done
 #diff -w correctAns3.txt ./dump/out100.txt
-diff -w correctAns.txt ./dump/out1.txt
+#diff -w correctAns.txt ./dump/out1.txt

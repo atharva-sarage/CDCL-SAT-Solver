@@ -9,19 +9,38 @@ using namespace std;
 //#define LEARNEDCLAUSES
 //#define OUTPUT
 // Global Variables for storing finalAssignment and totalNumberofClauses and Variables
-struct variableState{
-    int assigned,level,antClause;
+struct literalState{
+    int assigned;  // value assigned to literal
+    int level;     // the level of search tree at which this literal was assigned
+    int antClause; // if it was an implied literal then it's antecedant clause
 };
-int conflicts;
-int threshold=100;
-set<pair<int,int>>variableActivity;
+int conflicts;     // counter to denote Number of conflicts 
+int threshold=100; // hyperparameter for restart after threshold many conflicts 
+                   // we do a restart
+
+/**
+ * variableActivity stores a pair{activity,variable} for every variable,
+ * Container is std::set. set is sorted in ascending order.
+ * The highest activity variable is second entry corresponding to variableActivity's last pair.
+ * We choose the highest activity variable for VSIDS
+ */
+// 
+set<pair<int,int>>variableActivity; 
+/**
+ * level0Variables
+ * all the literals which are true at level 0.
+ * Literals are added to this when we learn a clause 
+ * containing only one literal. Forcing it to be true.
+ */
 vector<int>level0Variables;
-vector<bool>finalAssignment;
-vector<int>unitLiterals;
-vector <variableState> state;
-vector <int> depth;
-vector <int> decisionLiteral;
-vector <int> currentScore;
+vector<bool>finalAssignment;// stores the finalAssignment of the literals
+
+vector<int>unitLiterals;// stores the unitLiterals
+
+vector <literalState> state;     // to store state of all literals
+vector <int> depth;              // the level at which a variable was assigned
+vector <int> decisionLiteral;    // the decision literal which was set to true at a given level
+vector <int> currentScore;       // represents the current score of a given variable
 int totalClauses,totalVariables; // These are initialized in main()
 // Given a literal return its complement literal
 inline int complement(int i){
@@ -56,7 +75,6 @@ class clause{
         * positive literal are represented by even numbers +1->2,+2->4,...
         * negative literal are represented by odd numbers -1->1,-2->3,...
         */
-
         inline void addLiteral(int x){
             totalLiterals++;
             if(x<0){
@@ -78,33 +96,34 @@ class clause{
         bool isTautology(){
             return tautology;
         }
-        static clause resolution(clause a,clause b,int literal){
+        // returns the resoluted clause of 2 clauses  a ,b over a literal c
+        // where one clause contains c ans other contains negation  c
+        static clause resolution(clause a,clause b,int c){
+            // to keep track of which literals are added to resoluted clause
             vector<bool> visited(2*totalVariables+5,false);
-            clause newClause;
+            clause resolutedClause; // 
             for(auto lit:a.literals){
                 visited[lit]=true;
-                if(lit==literal || lit == complement(literal))
+                // if it is one of c or negation c do not add to new clause                
+                if(lit==c || lit == complement(c)) 
                     continue;
-                newClause.literals.emplace_back(lit);
+                resolutedClause.literals.emplace_back(lit);
             }
             for(auto lit:b.literals){
-                if(!visited[lit] && lit!=literal && lit != complement(literal)){
-                    newClause.literals.emplace_back(lit);  
+                // if it is one of c or negation c do not add to new clause and not already added
+                if(!visited[lit] && lit!=c && lit != complement(c)){
+                    resolutedClause.literals.emplace_back(lit);  
                     visited[lit]=true;
                 }                    
             }
-            // cout<<"resolution start"<<" "<<literal<<endl;
-            // a.printClause();
-            // b.printClause();
-            // newClause.printClause();
-            // cout<<"resolution done"<<endl;
-            return newClause;
+            return resolutedClause;
         }
+        // prints a clause
         void printClause(){
             for(auto lit:literals){
                 cout<<lit<<" ";
             }
-            cout<<"##"<<endl;
+            cout<<endl;
         }
 };
 /**
@@ -122,9 +141,14 @@ class clause{
 class clauseSet{
     public:
         vector <clause> clauses; // vector of clause
-        // for each literal we keep a pointer to a list(vector) which stores in which clauses it occurs.
+        // for each literal we keep a pointer to a list(unordered set) 
+        // which stores which clauses is this literal watching.        
         vector<unordered_set<int>*> literalClauseMap;  
+
+        // for each clause we keep 2 unassigned literals.
+        // watchedLit[1] gives the 2 watched literals for cluase 1        
         vector<pair<int,int>>watchedLit;  
+        
         // state stores the initial state of all the clauses
         clauseSet(){                 
             // clauses are also 1 indexed put a dummy clause at 0 index
@@ -266,11 +290,19 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                     variableActivity.insert(p1);
                     currentScore[p1.second]=p1.first;
                 }
-                // if(conflicts==threshold){
-                //     // restart
+                // if(conflicts==threshold){r restart after threshold many conflicts 
+                                   // we do a restart
+                
+                // this stores the activity of variable to choose the highest activity variable for VSIDS
+                //     // restart 
+                // all the 
                 //     unitLiterals.clear();
-                //     threshold=threshold*1.5;
-                //     return {false,0};
+                //     threshold=threshold*1.5;r restart after threshold many conflicts 
+                                   // we do a restart
+                
+                // this stores the activity of variable to choose the highest activity variable for VSIDS
+                //     return {false,0}; 
+                // all the 
                 // }                            
             }
             #ifdef DEBUG
