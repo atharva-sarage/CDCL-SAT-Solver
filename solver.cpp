@@ -390,35 +390,45 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
             // iterate over all the clauses containing complement of that literal                       
             for(auto clauseNum:*(clauseset->literalClauseMap[compUnitLiteral])){
                 iter++;
-
+                // if the clause is satisfied then move to next clause
                 if(clauseset->isSatisfied(clauseNum))continue;
-                #ifdef DEBUG
-                #endif
+                // idx1 and idx2 are index corresponding to the watched literals in current clause
                 int idx1=clauseset->watchedLit[clauseNum].first;
                 int idx2=clauseset->watchedLit[clauseNum].second;
                 bool flag=false;
+                /**
+                 * if it literal at index idx1 is compliteral it no more satisfies the invariant 
+                 * that it should be unassigned and its complement must alas be unassigned
+                 * so we need to find another one 
+                 */
+           
                 if(clauseset->clauses[clauseNum].literals[idx1]==compUnitLiteral){
                     for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
                         if(i==idx2 || i==idx1)continue;
+                        // pick an unassigned literal
                         if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
                             state[complement(clauseset->clauses[clauseNum].literals[i])].assigned==false)
                             {
+                                // make updates
                                 clauseset->watchedLit[clauseNum].first=i;
                                 clauseset->literalClauseMap[clauseset->clauses[clauseNum].literals[i]]->insert(clauseNum);
+                                // now this clauseNum must be erased from list of of clauses watched by compliteral
+                                // as it no longer watche it
                                 eraseList.push_back(clauseNum);
                                 flag=true;
                                 break;
                             }
                     }
+                    // we were not able to find an unassigned literals se the other watched literal for this clause
+                    // must be true so we add it to unitLiterals
+                    // and update the antecedent clause for this literal
                     if(!flag){
-
                         int newliteral=clauseset->clauses[clauseNum].literals[idx2];
                         unitLiterals.emplace_back(newliteral);
                         state[newliteral].antClause=clauseNum;
-                        //cout<<newliteral<<" "<<clauseNum<<"^^"<<endl;
-                        // state[newliteral].level=level;
                     }
-                }else{
+                } // same for the other watched literal
+                else{
                         for(int i=0;i<clauseset->clauses[clauseNum].literals.size();i++){
                         if(i==idx2 || i==idx1)continue;
                         if(state[clauseset->clauses[clauseNum].literals[i]].assigned==false && 
@@ -438,12 +448,13 @@ pair<bool,int>unitPropogation(vector<int>&unset,int level,clauseSet* clauseset){
                     }
                 }                     
             }  
+            // delete all clauses that compUnitLiteral does not watch anymore
             for(auto k:eraseList){
                 clauseset->literalClauseMap[compUnitLiteral]->erase(k);
             }
         }  
     }   
-    // clear unitLiterals list.
+    // clear unitLiterals list as we have infered all possible information.
     unitLiterals.clear();
     if(satisfiedVariables==totalVariables) // WE ARE DONE -1 to denote this event
         return {true,-1};
@@ -454,8 +465,22 @@ class SATsolver{
         clauseSet* clauseset; // a pointer to clauseset object
     public: 
         SATsolver(clauseSet* cs):clauseset(cs){} // constructor which takes a pointer to clauseset
+        /**
+         * unitLiterals stores all the literals which are true at this level.
+         * If it is level 0- then it is same as level0Variable(the varibles which are true at level 0)         
+         * Else - it contains decion literal which was taken at this level.
+         * Step1: unitLiteral has the all the unitLiterals which are true at level(argument of cdcl function).         * 
+         * Step2: do unitPropogation at this level if it return true then we are cool no conflict occured
+         *         If it returned false then we cdcl returns false and jumps to level set by unitpropogation
+         * Step3: We pick a new variable that is not assigned till now and call cdcl(level+1)
+         *        and call cdcl(level+1)
+         *        now if it returns true we are done formula is SAT
+         *        If it returns false and orderes to jump at lower level we unset all the information that
+         *        was taken at this level and backtrack         
+         *        It it tells us to stay at same level. Add new learned clause.
+         *        Do unitpropogation with the same decision literal which was taken at this level to STEP 2         
+         */
         pair<bool,int> cdcl(int level){ 
-            //cout<<level<<endl;
             vector <int> unset;
             /////////////UNIT PROPOGATION STARTS/////////////////
             pair<bool,int>retVal=unitPropogation(unset,level,clauseset);
@@ -465,7 +490,7 @@ class SATsolver{
              * then the formula is UNSAT. And we are done!!
              * If we are not at level 0 we jump to state which unitPropagation ordered us.
              * The level is the second element of pair
-             * If retVal returs true we do to decide stage where we pick new variable             * 
+             * If retVal returs true we go to decide stage where we pick new variable 
              */            
             if(retVal.first!=true){
                 // unSet all the variables which were set during call to unitPropogation.
@@ -474,7 +499,7 @@ class SATsolver{
                 unset.clear();              
                 return retVal;
             }
-            if(satisfiedVariables==totalVariables){
+            if(retVal.second == -1){
                 return {true,0};
             }
             // clear unitLiterals as we infered all the information by literals
@@ -493,7 +518,7 @@ class SATsolver{
                         bestLiteral=2*var-1;
                         break;
                     }
-                }              
+                }         
      
                 int random=rand()%2;
                 // randomly choose either positive or negated literal
@@ -525,8 +550,8 @@ class SATsolver{
                  * information any subsequent unitpropogatino information is 
                  * present in unset2.          * 
                  */
-                unSet(unset); // check again as we need to restart even if same level
-                unSet(unset2); // throw previous unit propogation information
+                unSet(unset); 
+                unSet(unset2); 
                 unset.clear();
                 unset2.clear();
                 //  wants to go up the decision level as per returned value
