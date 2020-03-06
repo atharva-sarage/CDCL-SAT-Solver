@@ -311,31 +311,7 @@ pair<bool,int>unitPropogation(vector<int>&unsetLiterals,int level,clauseSet* cla
                     currentScore[p1.second]=p1.first; 
                 }
             }
-            // after conflicts cross threshold we do a restart
-            if(conflicts==threshold){
-                // restart
-                int level=1;
-                /**
-                 * Reusing the Assignment Trail in CDCL Solvers 
-                 * http://satassociation.org/jsat/index.php/jsat/article/view/89
-                   * partial restart to MTL (as per paper terminology)
-                 * We have some decision trail and now we do a restart
-                 * New decision variables will be chosen according to Current activity of variables
-                 * Now if some part of our decision trail matches the optimal decision trail then we 
-                 * can reuse it and need not do it again.
-                 * so we start at first point of difference of optimal and current decision tral
-                 */
-
-                for(auto it=variableActivity.rbegin();it!=variableActivity.rend();++it){
-                    if(it->second!=getvariable(decisionLiteral[level]))
-                        break;
-                    level++;
-                }
-                // clear all the unitLiterals list as we jumping to new level.
-                unitLiterals.clear();
-                threshold=threshold*2; // increase threshold
-                return {false,level-1};
-            }                            
+                             
             // Learnt Clause Addition
             // cl is the antecedant clause of the unitLiteral involved in conflict
             /**
@@ -530,9 +506,50 @@ class SATsolver{
                         break;
                     }
                 }         
-     
+                /**
+                 * RESTART 
+                 * after conflicts cross threshold we do a restart.
+                 * Also update threshold after every restart
+                 * Reusing the Assignment Trail in CDCL Solvers 
+                 * http://satassociation.org/jsat/index.php/jsat/article/view/89
+                 * partial restart to Reduced Trail (as per paper terminology)
+                 * We have some decision trail and now we do a restart
+                 * New decision variables will be chosen according to Current activity of variables
+                 * Let x next be the unassigned variable with the highest activity – 
+                 * in other words the next decision variable if no restart would be performed. 
+                 * The key insight is that any assignment that is made before x next after
+                 * a restart must also have been assigned before the restart.
+                 *  The ReusedTrail level (RTL) is the highest level up to which
+                 *  all decision variables score higher than x next in the VSIDS order.
+                 *  This means that each of these would be part of the trail after a full restart.
+                 *  This gives performance some performance improvement
+                 */
+                 
+                int nextVariableActivivty=currentScore[getvariable(bestLiteral)];
+                if(conflicts==threshold){
+                    // restart
+                    int restartLevel;                   
+                   
+                    for(int i=1;i<=level;i++){
+                        restartLevel=i;
+                        if(currentScore[getvariable(decisionLiteral[level])]<nextVariableActivivty)
+                            break;
+                    }
+                 
+                    // clear all the unitLiterals list and 
+                    // unitPropogation infromation( more details on line 576)
+                    // as we jumping to new level.
+                    unSetInformation(unsetLiterals); 
+                    unSetInformation(unsetLiterals2); 
+                    unsetLiterals.clear();
+                    unsetLiterals2.clear();
+                    unitLiterals.clear();
+                    threshold=threshold*2; // increase threshold to delay next restart
+                    return {false,restartLevel-1};
+                }           
+                
                 int random=rand()%2;
-                // randomly choose either positive or negated literal
+                // // randomly choose either positive or negated literal
                 if(random%2==0)
                     bestLiteral=complement(bestLiteral);   
                 // add the decision variable in the begining to unitLiteral list as this must be set to true
