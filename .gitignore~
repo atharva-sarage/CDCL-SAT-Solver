@@ -1,4 +1,5 @@
 solver2.cpp
+*.sh
 brute
 tests
 *.out
@@ -11,8 +12,3 @@ out*
 gen
 gentest.cpp
 int*
-s.sh
-checker.sh
-checker2.sh
-temp.cpp
-
