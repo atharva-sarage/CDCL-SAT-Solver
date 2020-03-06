@@ -465,9 +465,9 @@ class SATsolver{
          * unitLiterals stores all the literals which are true at this level.
          * If it is level 0- then it is same as level0Variable(the varibles which are true at level 0)         
          * Else - it contains decion literal which was taken at this level.
-         * Step1: unitLiterals vector has the all the unitLiterals which are true at level(argument of cdcl function).         * 
+         * Step1: unitLiteral has the all the unitLiterals which are true at level(argument of cdcl function).         * 
          * Step2: do unitPropogation at this level if it return true then we are cool no conflict occured
-         *         If it returned false then we cdcl returns false and backtracks to level set by unitpropogation
+         *         If it returned false then we cdcl returns false and jumps to level set by unitpropogation
          * Step3: We pick a new variable that is not assigned till now and call cdcl(level+1)
          *        and call cdcl(level+1)
          *        now if it returns true we are done formula is SAT
@@ -627,7 +627,9 @@ int main(){
 
     SATsolver cdclsolver(&clauses); // solver object
     // CALL TO SOLVER
-    pair<bool,int> ret=cdclsolver.cdcl(0);    
+    pair<bool,int> ret=cdclsolver.cdcl(0); 
+    cout<<ret.first<<endl;
+    #ifdef OUTPUT
     if(!ret.first)
         cout<<"UNSAT\n";
     else{
@@ -649,5 +651,6 @@ int main(){
         assert(set==true);
     }   
     }
+    #endif
     return 0; 
 }
